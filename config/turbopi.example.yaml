@@ -1,0 +1,6 @@
+# Public ROS interface names only; no vendor implementation is included.
+battery:
+  topic: /ros_robot_controller/battery
+  message_type: std_msgs/msg/UInt16
+  timeout_s: 5
+# Movement is intentionally not exposed in this initial scaffold.
