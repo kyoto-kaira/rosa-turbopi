@@ -7,6 +7,7 @@ from rosa import ROSA, RobotSystemPrompts
 
 from rosa_turbopi.prompts import SYSTEM_PROMPT
 from rosa_turbopi.robot.client import TurboPiClient
+from rosa_turbopi.tools.motion import build_tools as build_motion_tools
 from rosa_turbopi.tools.status import build_tools
 
 
@@ -36,7 +37,7 @@ def build_agent(robot: TurboPiClient) -> ROSA:
     return RosbridgeROSA(
         ros_version=2,
         llm=llm,
-        tools=build_tools(robot),
+        tools=build_tools(robot) + build_motion_tools(robot),
         prompts=RobotSystemPrompts(embodiment_and_persona=SYSTEM_PROMPT),
         streaming=False,
         max_iterations=5,

@@ -17,6 +17,7 @@ class Settings:
     battery_type: str
     timeout_s: float
     model: str
+    backend: str = "rosbridge"
 
     @classmethod
     def load(cls) -> "Settings":
@@ -33,6 +34,9 @@ class Settings:
         secure = os.getenv("ROSBRIDGE_SECURE", "false").lower()
         if secure not in {"true", "false"}:
             raise ValueError("ROSBRIDGE_SECURE must be true or false")
+        backend = os.getenv("ROBOT_BACKEND", "rosbridge")
+        if backend not in {"mock", "rosbridge"}:
+            raise ValueError("ROBOT_BACKEND must be mock or rosbridge")
         return cls(
             host=os.getenv("ROSBRIDGE_HOST", "127.0.0.1"),
             port=port,
@@ -41,4 +45,5 @@ class Settings:
             battery_type=battery["message_type"],
             timeout_s=timeout,
             model=os.getenv("LLM_MODEL", ""),
+            backend=backend,
         )

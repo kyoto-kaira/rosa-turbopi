@@ -1,5 +1,6 @@
 """Robot operations exposed to agent tools."""
 
+from rosa_turbopi.robot.motion import MotionExecutor
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.transport.rosbridge import RosbridgeClient
 
@@ -8,9 +9,15 @@ class TurboPiClient:
     def __init__(self, transport: RosbridgeClient, settings: Settings):
         self.transport = transport
         self.settings = settings
+        self.motion = MotionExecutor(transport)
 
     def status(self) -> dict:
-        return {"connected": self.transport.connected, "movement_enabled": False}
+        return {
+            "connected": self.transport.connected,
+            "movement_enabled": self.motion.enabled,
+            "backend": "mock" if self.motion.enabled else "rosbridge",
+            "motion": self.motion.status(),
+        }
 
     def battery(self) -> dict:
         message = self.transport.read_once(
