@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+config/*.local.yaml
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+.agents/
+.aws/
+.codex/

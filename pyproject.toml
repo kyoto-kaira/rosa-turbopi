@@ -1,0 +1,24 @@
+[project]
+name = "rosa-turbopi"
+version = "0.1.0"
+description = "Natural-language TurboPi interface using ROSA and rosbridge"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = ["jpl-rosa==1.0.10", "roslibpy>=1.8,<2", "python-dotenv>=1.0.1", "PyYAML==6.0.1"]
+
+[project.scripts]
+rosa-turbopi = "rosa_turbopi.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
