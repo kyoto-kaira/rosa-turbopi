@@ -181,14 +181,11 @@ rosa-turbopi/
 │       └── mock.py                # ネットワークを使わない通信モック
 ├── tests/                         # 実機・外部LLM APIへ接続しないテスト
 ├── docs/
-│   ├── architecture.md            # 設計と既存コンテナとの関係
-│   ├── robot-interface.md         # ROSトピック・型・対応状況
-│   ├── setup.md                   # 設定・起動・チャット内コマンド
-│   └── troubleshooting.md         # 接続・操作・表示のトラブル対応
+│   └── architecture.md            # 設計と既存コンテナとの関係
 └── .github/workflows/
     └── ci.yaml                    # lint・テスト・パッケージビルド
 ```
 
-詳細: [設計](docs/architecture.md)、[接続仕様](docs/robot-interface.md)、[セットアップ](docs/setup.md)、[トラブル対応](docs/troubleshooting.md)。
+詳細: [設計](docs/architecture.md)。
 
 このリポジトリにはTurboPiのソース、SDK、コンテナイメージを含めません。
