@@ -18,7 +18,7 @@ docker compose run --rm rosa battery
 docker compose run --rm rosa chat
 ```
 
-`chat` では「接続状態を教えて」「バッテリーを教えて」と入力できます。`/quit` または Ctrl-C で終了します。`check` と `battery` はLLMを使用しません。
+`chat` では「接続状態を教えて」「バッテリーを教えて」と入力できます。`/status` で状態確認、`/quit` または Ctrl-C で終了します。`check` と `battery` はLLMを使用しません。
 
 ## ローカル開発
 
@@ -35,12 +35,12 @@ uv run pytest
 
 ## 構成
 
-`cli → ROSA → tools → robot → transport → 既存rosbridge`
+`cli → ROSA → tools → robot → transport（既存rosbridge / モック）`
 
 - `src/rosa_turbopi/agent.py`: 独自ツールのみを登録するROSAアダプター
 - `tools/`: LLMに公開する操作
 - `robot/`: ロボットの操作・状態取得
-- `transport/`: roslibpyによるWebSocket通信
+- `transport/`: roslibpyによるWebSocket通信とネットワークを使わないモック
 - `config/`: 公開可能なインターフェース設定例
 - `tests/`: 実機やLLMを使わない検証
 
