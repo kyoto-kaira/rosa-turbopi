@@ -1,10 +1,11 @@
-"""Bounded mock motion with cancellation and observable completion."""
+"""Bounded motion; stop delivery is best effort, not a hardware guarantee."""
 
 import math
 import time
 from threading import Event, Lock, Thread
 
 from rosa_turbopi.transport.mock import MockTransport
+from rosa_turbopi.transport.rosbridge import RosbridgeClient
 
 
 def twist(vx: float = 0, vy: float = 0, wz: float = 0) -> dict:
@@ -12,14 +13,17 @@ def twist(vx: float = 0, vy: float = 0, wz: float = 0) -> dict:
 
 
 class MotionExecutor:
-    MAX_LINEAR = 0.1
-    MAX_ANGULAR = 0.3
+    MIN_LINEAR = 0.4
+    MAX_LINEAR = 0.9
+    MAX_ANGULAR = 7.0
     MAX_DURATION = 3.0
     PERIOD = 0.1
 
     def __init__(self, transport, clock=time.monotonic, wait=None):
-        # No environment variable can enable real motion in this version.
-        self._enabled = type(transport) is MockTransport
+        self.simulated = type(transport) is MockTransport
+        self._enabled = self.simulated or (
+            type(transport) is RosbridgeClient and transport.motion_enabled
+        )
         self._transport = transport
         self._clock = clock
         self._cancel = Event()
@@ -36,18 +40,23 @@ class MotionExecutor:
 
     def status(self) -> dict:
         with self._lock:
-            return {"state": self._state, "error": self._error, "simulated": self._enabled}
+            return {"state": self._state, "error": self._error, "simulated": self.simulated}
 
     def start(self, vx: float, vy: float, wz: float, duration_s: float) -> dict:
         if not self._enabled:
-            raise PermissionError("Real robot movement is disabled; use ROBOT_BACKEND=mock")
+            raise PermissionError(
+                "Real movement is disabled; use ENABLE_MOTION=true or ROBOT_BACKEND=mock"
+            )
         values = (vx, vy, wz, duration_s)
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in values):
             raise ValueError("Motion arguments must be numbers")
         if not all(math.isfinite(v) for v in values):
             raise ValueError("Motion arguments must be finite")
-        if math.hypot(vx, vy) > self.MAX_LINEAR or abs(wz) > self.MAX_ANGULAR:
-            raise ValueError("Speed exceeds limits: linear 0.1 m/s, angular 0.3 rad/s")
+        linear = math.hypot(vx, vy)
+        if linear != 0 and not self.MIN_LINEAR <= linear <= self.MAX_LINEAR:
+            raise ValueError("Nonzero linear speed must be between 0.4 and 0.9 m/s")
+        if abs(wz) > self.MAX_ANGULAR:
+            raise ValueError("Angular speed exceeds 7.0 rad/s")
         if not 0 < duration_s <= self.MAX_DURATION:
             raise ValueError("Duration must be greater than 0 and at most 3 seconds")
         with self._lock:
@@ -62,7 +71,7 @@ class MotionExecutor:
                 target=self._run, args=(twist(vx, vy, wz), duration_s), daemon=True
             )
             self._thread.start()
-        return {"state": "started", "simulated": True, "duration_s": duration_s}
+        return {"state": "started", "simulated": self.simulated, "duration_s": duration_s}
 
     def _run(self, message: dict, duration_s: float) -> None:
         error = None
@@ -89,7 +98,7 @@ class MotionExecutor:
 
     def stop(self) -> dict:
         if not self._enabled:
-            raise PermissionError("Real robot stop commands are disabled in this version")
+            raise PermissionError("Real stop commands are disabled; set ENABLE_MOTION=true")
         with self._lock:
             self._stopping = True
             self._cancel.set()

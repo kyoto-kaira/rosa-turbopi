@@ -5,7 +5,8 @@ from rosa_turbopi.cli import main
 
 def test_real_move_is_rejected_before_constructing_transport(monkeypatch, capsys):
     monkeypatch.setenv("ROBOT_BACKEND", "rosbridge")
-    monkeypatch.setattr("sys.argv", ["rosa-turbopi", "move", "--vx", "0.05"])
+    monkeypatch.setenv("ENABLE_MOTION", "false")
+    monkeypatch.setattr("sys.argv", ["rosa-turbopi", "move", "--vx", "0.5"])
 
     def forbidden(*args):
         pytest.fail("Real transport must not be created")
@@ -19,7 +20,7 @@ def test_real_move_is_rejected_before_constructing_transport(monkeypatch, capsys
 
 def test_mock_move_runs_without_real_transport(monkeypatch, capsys):
     monkeypatch.setenv("ROBOT_BACKEND", "mock")
-    monkeypatch.setattr("sys.argv", ["rosa-turbopi", "move", "--vx", "0.05", "--duration", "0.01"])
+    monkeypatch.setattr("sys.argv", ["rosa-turbopi", "move", "--vx", "0.5", "--duration", "0.01"])
 
     def forbidden(*args):
         pytest.fail("Mock mode must not create a real transport")
@@ -38,7 +39,7 @@ def test_chat_keeps_prompt_clear_and_accepts_next_command(monkeypatch, capsys):
             self.robot = robot
 
         def invoke(self, query):
-            self.robot.motion.start(0.05, 0, 0, 0.01)
+            self.robot.motion.start(0.5, 0, 0, 0.01)
             self.robot.motion.join()
             return "模擬前進しました"
 

@@ -4,8 +4,6 @@ services:
     # Linux/Pi: reach the existing rosbridge without touching its container.
     network_mode: host
     env_file: .env
-    environment:
-      ROBOT_BACKEND: ${ROBOT_BACKEND:-rosbridge}
     stdin_open: true
     tty: true
     read_only: true
@@ -15,5 +13,3 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    volumes:
-      - ./config:/app/config:ro

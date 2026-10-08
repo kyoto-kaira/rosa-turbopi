@@ -11,7 +11,7 @@ from rosa_turbopi.transport.rosbridge import RosbridgeClient
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ROSA → TurboPi (real read-only / mock motion)")
+    parser = argparse.ArgumentParser(description="ROSA → TurboPi (real opt-in motion / mock)")
     parser.add_argument("command", choices=["check", "battery", "chat", "move", "stop"])
     parser.add_argument("--vx", type=float, default=0)
     parser.add_argument("--vy", type=float, default=0)
@@ -22,12 +22,20 @@ def main() -> None:
     robot = None
     try:
         settings = Settings.load()
-        if args.command in {"move", "stop"} and settings.backend != "mock":
-            raise PermissionError("Real movement is disabled; use ROBOT_BACKEND=mock")
+        if (
+            args.command in {"move", "stop"}
+            and settings.backend != "mock"
+            and not settings.enable_motion
+        ):
+            raise PermissionError(
+                "Real movement is disabled; set ENABLE_MOTION=true or use ROBOT_BACKEND=mock"
+            )
         transport = (
             MockTransport(echo=args.command != "chat")
             if settings.backend == "mock"
-            else RosbridgeClient(settings.host, settings.port, settings.secure)
+            else RosbridgeClient(
+                settings.host, settings.port, settings.secure, enable_motion=settings.enable_motion
+            )
         )
         robot = TurboPiClient(transport, settings)
         agent = None
@@ -49,8 +57,8 @@ def main() -> None:
         elif args.command == "stop":
             print(json.dumps(robot.motion.stop()))
         else:
-            print(f"バックエンド: {settings.backend}（実機走行は無効）")
-            print("日本語で入力してください。/status で状態確認、/stop で模擬停止、/quit で終了。")
+            print(f"バックエンド: {settings.backend} / 移動有効: {robot.motion.enabled}")
+            print("日本語で入力してください。/status で状態確認、/stop で停止、/quit で終了。")
             while True:
                 query = input("> ").strip()
                 if query == "/quit":

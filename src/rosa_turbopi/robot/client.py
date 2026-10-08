@@ -15,7 +15,7 @@ class TurboPiClient:
         return {
             "connected": self.transport.connected,
             "movement_enabled": self.motion.enabled,
-            "backend": "mock" if self.motion.enabled else "rosbridge",
+            "backend": "mock" if self.motion.simulated else "rosbridge",
             "motion": self.motion.status(),
         }
 
