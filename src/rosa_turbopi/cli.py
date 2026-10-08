@@ -25,7 +25,7 @@ def main() -> None:
         if args.command in {"move", "stop"} and settings.backend != "mock":
             raise PermissionError("Real movement is disabled; use ROBOT_BACKEND=mock")
         transport = (
-            MockTransport(echo=True)
+            MockTransport(echo=args.command != "chat")
             if settings.backend == "mock"
             else RosbridgeClient(settings.host, settings.port, settings.secure)
         )
@@ -50,11 +50,14 @@ def main() -> None:
             print(json.dumps(robot.motion.stop()))
         else:
             print(f"バックエンド: {settings.backend}（実機走行は無効）")
-            print("日本語で入力してください。/stop はLLMを使わず模擬停止、/quit で終了。")
+            print("日本語で入力してください。/status で状態確認、/stop で模擬停止、/quit で終了。")
             while True:
                 query = input("> ").strip()
                 if query == "/quit":
                     break
+                if query == "/status":
+                    print(json.dumps(robot.status(), ensure_ascii=False))
+                    continue
                 if query == "/stop":
                     if robot.motion.enabled:
                         print(robot.motion.stop())

@@ -27,3 +27,26 @@ def test_mock_move_runs_without_real_transport(monkeypatch, capsys):
     monkeypatch.setattr("rosa_turbopi.cli.RosbridgeClient", forbidden)
     main()
     assert '"state": "completed"' in capsys.readouterr().out
+
+
+def test_chat_keeps_prompt_clear_and_accepts_next_command(monkeypatch, capsys):
+    monkeypatch.setenv("ROBOT_BACKEND", "mock")
+    monkeypatch.setattr("sys.argv", ["rosa-turbopi", "chat"])
+
+    class Agent:
+        def __init__(self, robot):
+            self.robot = robot
+
+        def invoke(self, query):
+            self.robot.motion.start(0.05, 0, 0, 0.01)
+            self.robot.motion.join()
+            return "模擬前進しました"
+
+    monkeypatch.setattr("rosa_turbopi.agent.build_agent", Agent)
+    commands = iter(["前進して", "/status", "/quit"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(commands))
+    main()
+    output = capsys.readouterr().out
+    assert "模擬前進しました" in output
+    assert '"state": "completed"' in output
+    assert "[MOCK /cmd_vel]" not in output
