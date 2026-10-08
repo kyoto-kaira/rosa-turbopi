@@ -141,7 +141,7 @@ def test_directional_tools_publish_correct_axis_then_stop(name, expected):
     robot = type("Robot", (), {"motion": motion})()
     tools = {t.name: t for t in build_tools(robot)}
     result = tools[name].invoke({"duration_s": 0.1})
-    assert result["state"] == "started"
+    assert result["state"] == "completed"
     assert result["simulated"] is True
     assert motion.join()["state"] == "completed"
     assert transport.commands == [expected, twist()]
@@ -196,7 +196,7 @@ def test_rotation_tool_accepts_upper_bound(name, sign):
     transport, motion = setup_motion()
     robot = type("Robot", (), {"motion": motion})()
     tools = {t.name: t for t in build_tools(robot)}
-    assert tools[name].invoke({"duration_s": 0.1, "angular_speed": 7.0})["state"] == "started"
+    assert tools[name].invoke({"duration_s": 0.1, "angular_speed": 7.0})["state"] == "completed"
     assert motion.join()["state"] == "completed"
     assert transport.commands == [twist(0, 0, sign * 7.0), twist()]
 
@@ -207,3 +207,23 @@ def test_rotation_over_upper_bound_never_publishes(speed):
     with pytest.raises(ValueError):
         motion.start(0, 0, speed, 1)
     assert not transport.commands
+
+
+@pytest.mark.parametrize(
+    "name, args",
+    [
+        ("move_forward", {"duration_s": 0.1}),
+        ("move_for", {"vx": 0.5, "vy": 0, "wz": 0, "duration_s": 0.1}),
+    ],
+)
+def test_tool_returns_worker_failure_instead_of_start_success(monkeypatch, name, args):
+    transport, motion = setup_motion()
+
+    def fail(message):
+        raise ConnectionError("test connection lost")
+
+    monkeypatch.setattr(transport, "publish_velocity", fail)
+    tools = {t.name: t for t in build_tools(type("Robot", (), {"motion": motion})())}
+    result = tools[name].invoke(args)
+    assert result["state"] == "failed"
+    assert "Stop delivery failed" in result["error"]

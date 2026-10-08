@@ -16,10 +16,11 @@ def build_tools(robot: TurboPiClient) -> list:
         """移動を開始。vxは前進、vyは左、wzは左旋回。負値は逆方向。
 
         速度はm/sとrad/s。並進合成速度は停止の0または0.4〜0.9、旋回は最大7.0、時間は最大3秒。
-        開始後はバックグラウンド実行。モックでは模擬操作、実機では指令送信。距離・角度指定は非対応。
+        終了時のゼロ速度送信まで待ち、completed・cancelled・failedを返す。モックでは模擬操作、実機では指令送信。距離・角度指定は非対応。
         """
         try:
-            return robot.motion.start(vx, vy, wz, duration_s)
+            robot.motion.start(vx, vy, wz, duration_s)
+            return robot.motion.join()
         except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
             return {"state": "rejected", "error": str(exc), "simulated": robot.motion.simulated}
 
@@ -33,7 +34,8 @@ def build_tools(robot: TurboPiClient) -> list:
         velocity = {"vx": 0.0, "vy": 0.0, "wz": 0.0}
         velocity[axis] = sign * speed
         try:
-            return robot.motion.start(**velocity, duration_s=duration_s)
+            robot.motion.start(**velocity, duration_s=duration_s)
+            return robot.motion.join()
         except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
             return {"state": "rejected", "error": str(exc), "simulated": robot.motion.simulated}
 

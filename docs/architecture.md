@@ -18,6 +18,6 @@ MockTransportはメモリに指令を記録し、ネットワークを使いま�
 
 モックでは `move_forward`、`move_backward`、`move_left`、`move_right`、`rotate_left`、`rotate_right`、`move_for`、`stop` を登録します。実機バックエンドではENABLE_MOTION=trueの場合だけ移動・停止ツールを登録します。
 
-方向別ツールは正の速度と必須の継続時間を受け取り、符号と軸を決めてMotionExecutorへ渡します。移動はバックグラウンドで実行し、開始応答と完了状態を区別します。状態は `idle`、`running`、`completed`、`cancelled`、`failed` で、失敗理由も保持します。
+方向別ツールは正の速度と必須の継続時間を受け取り、符号と軸を決めてMotionExecutorへ渡します。実行ワーカーはバックグラウンドですが、移動ツールはjoinで終了を待ち、ゼロ速度送信後の最終状態をLLMへ返します。モックと実機の両方が対象です。実機では物理的な完了の確認ではなく送信処理の完了を意味します。状態は `idle`、`running`、`completed`、`cancelled`、`failed` で、失敗理由も保持します。
 
 チャット中は背景スレッドから速度ログを出さず、入力プロンプトを保ちます。`/status` と `/stop` はLLMを経由せず実行します。モックの `move` コマンドは指令ログを表示し、終了を待ちます。テストは通信モック・仮想時計・テスト用LLMを使用し、実機と外部LLM APIへ接続しません。

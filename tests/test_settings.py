@@ -29,3 +29,11 @@ def test_timeout_from_environment_and_fixed_interface(monkeypatch, tmp_path):
     assert settings.timeout_s == 2.5
     assert settings.battery_topic == "/ros_robot_controller/battery"
     assert settings.battery_type == "std_msgs/msg/UInt16"
+
+
+@pytest.mark.parametrize("value", ["0", "51", "invalid"])
+def test_invalid_agent_iterations(monkeypatch, value):
+    monkeypatch.setattr("rosa_turbopi.settings.load_dotenv", lambda: None)
+    monkeypatch.setenv("AGENT_MAX_ITERATIONS", value)
+    with pytest.raises(ValueError):
+        Settings.load()

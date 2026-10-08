@@ -17,6 +17,8 @@ class Settings:
     model: str
     backend: str = "rosbridge"
     enable_motion: bool = True
+    agent_max_iterations: int = 15
+    agent_verbose: bool = False
 
     @classmethod
     def load(cls) -> "Settings":
@@ -36,6 +38,12 @@ class Settings:
         enable_motion = os.getenv("ENABLE_MOTION", "true").lower()
         if enable_motion not in {"true", "false"}:
             raise ValueError("ENABLE_MOTION must be true or false")
+        iterations = int(os.getenv("AGENT_MAX_ITERATIONS", "15"))
+        if not 1 <= iterations <= 50:
+            raise ValueError("AGENT_MAX_ITERATIONS must be between 1 and 50")
+        verbose = os.getenv("AGENT_VERBOSE", "false").lower()
+        if verbose not in {"true", "false"}:
+            raise ValueError("AGENT_VERBOSE must be true or false")
         return cls(
             host=os.getenv("ROSBRIDGE_HOST", "127.0.0.1"),
             port=port,
@@ -46,4 +54,6 @@ class Settings:
             model=os.getenv("LLM_MODEL", ""),
             backend=backend,
             enable_motion=enable_motion == "true",
+            agent_max_iterations=iterations,
+            agent_verbose=verbose == "true",
         )

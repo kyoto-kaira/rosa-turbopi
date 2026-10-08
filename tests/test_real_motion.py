@@ -60,3 +60,15 @@ def test_stop_without_local_movement_sends_zero(bridge):
     motion = MotionExecutor(bridge)
     assert motion.stop()["simulated"] is False
     assert bridge._velocity.messages == [twist()]
+
+
+def test_real_backend_tool_returns_only_after_stop_publication(bridge):
+    from rosa_turbopi.tools.motion import build_tools
+
+    motion = MotionExecutor(bridge)
+    robot = type("Robot", (), {"motion": motion})()
+    tools = {t.name: t for t in build_tools(robot)}
+    result = tools["move_forward"].invoke({"duration_s": 0.01})
+    assert result["state"] == "completed"
+    assert result["simulated"] is False
+    assert bridge._velocity.messages == [twist(0.5), twist()]

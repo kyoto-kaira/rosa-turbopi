@@ -40,5 +40,6 @@ def build_agent(robot: TurboPiClient) -> ROSA:
         tools=build_tools(robot) + build_motion_tools(robot),
         prompts=RobotSystemPrompts(embodiment_and_persona=SYSTEM_PROMPT),
         streaming=False,
-        max_iterations=5,
+        max_iterations=robot.settings.agent_max_iterations,
+        verbose=robot.settings.agent_verbose,
     )
