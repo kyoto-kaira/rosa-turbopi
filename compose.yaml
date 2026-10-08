@@ -1,0 +1,15 @@
+services:
+  rosa:
+    build: .
+    # Linux/Pi: reach the existing rosbridge without touching its container.
+    network_mode: host
+    env_file: .env
+    stdin_open: true
+    tty: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
