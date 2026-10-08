@@ -123,3 +123,46 @@ def test_motion_tool_returns_rejection_and_simulation_label():
     assert result["state"] == "rejected"
     assert result["simulated"] is True
     assert not transport.commands
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("move_forward", twist(0.05)),
+        ("move_backward", twist(-0.05)),
+        ("move_left", twist(0, 0.05)),
+        ("move_right", twist(0, -0.05)),
+        ("rotate_left", twist(0, 0, 0.1)),
+        ("rotate_right", twist(0, 0, -0.1)),
+    ],
+)
+def test_directional_tools_publish_correct_axis_then_stop(name, expected):
+    transport, motion = setup_motion()
+    robot = type("Robot", (), {"motion": motion})()
+    tools = {t.name: t for t in build_tools(robot)}
+    result = tools[name].invoke({"duration_s": 0.1})
+    assert result["state"] == "started"
+    assert result["simulated"] is True
+    assert motion.join()["state"] == "completed"
+    assert transport.commands == [expected, twist()]
+
+
+@pytest.mark.parametrize(
+    "name, speed_key",
+    [
+        ("move_forward", "speed"),
+        ("move_backward", "speed"),
+        ("move_left", "speed"),
+        ("move_right", "speed"),
+        ("rotate_left", "angular_speed"),
+        ("rotate_right", "angular_speed"),
+    ],
+)
+@pytest.mark.parametrize("speed", [-0.05, 0, float("nan"), float("inf"), 0.4])
+def test_directional_tools_reject_invalid_speed_without_publish(name, speed_key, speed):
+    transport, motion = setup_motion()
+    robot = type("Robot", (), {"motion": motion})()
+    tools = {t.name: t for t in build_tools(robot)}
+    result = tools[name].invoke({"duration_s": 1, speed_key: speed})
+    assert result["state"] == "rejected"
+    assert not transport.commands
