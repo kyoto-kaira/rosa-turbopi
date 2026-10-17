@@ -13,7 +13,7 @@ port = 8080
 URL = f"http://{HOST}:{port}/snapshot?topic=/image_raw"
 
 model = YOLOWorld("yolov8s-worldv2.pt")
-#model.set_classes(["person", "bottle", "chair", "cup", "laptop"])  # 探したい物
+# model.set_classes(["person", "bottle", "chair", "cup", "laptop"])  # 探したい物
 
 with urllib.request.urlopen(URL, timeout=5) as res:
     data = res.read()
