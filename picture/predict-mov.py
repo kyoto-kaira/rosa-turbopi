@@ -1,6 +1,14 @@
-from ultralytics import YOLO
+import os
+import urllib.request
 
-HOST = "192.168.0.33"
+import cv2
+import numpy as np
+from dotenv import load_dotenv
+from ultralytics import YOLOWorld
+load_dotenv()
+timeout = float(os.getenv("ROSBRIDGE_TIMEOUT_S", "5"))
+HOST = os.getenv("ROSBRIDGE_HOST", "localhost")
+port = 8080
 URL = (
     f"http://{HOST}:8080/stream?topic=/image_raw"
     "&type=mjpeg&width=640&height=480&quality=60"
