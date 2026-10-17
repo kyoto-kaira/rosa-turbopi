@@ -1,10 +1,7 @@
 import os
-import urllib.request
-
-import cv2
 import numpy as np
 from dotenv import load_dotenv
-from ultralytics import YOLOWorld
+from ultralytics import YOLO
 load_dotenv()
 timeout = float(os.getenv("ROSBRIDGE_TIMEOUT_S", "5"))
 HOST = os.getenv("ROSBRIDGE_HOST", "localhost")

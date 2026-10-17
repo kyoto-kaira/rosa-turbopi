@@ -1,6 +1,5 @@
 import os
 import urllib.request
-
 import cv2
 import numpy as np
 from dotenv import load_dotenv
