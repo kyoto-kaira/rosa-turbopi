@@ -11,3 +11,6 @@ dist/
 .agents/
 .aws/
 .codex/
+yolo26n.pt
+yolov8s-worldv2.pt
+weights/clip/ViT-B-32.pt
