@@ -17,7 +17,7 @@ def build_tools(robot: TurboPiClient) -> list:
     host = os.getenv("ROSBRIDGE_HOST", "localhost")
     url = f"http://{host}:{SNAPSHOT_PORT}/snapshot?topic=/image_raw"
     model_path = os.getenv("YOLOE_MODEL", DEFAULT_MODEL_PATH)
-    model = None  # 初回の検出時に読み込む（CLI起動を重くしない）
+    model = None
 
     def horizontal(x_center: float, width: int) -> str:
         if x_center < width / 3:

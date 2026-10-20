@@ -11,6 +11,7 @@ from rosa_turbopi.tools.motion import build_tools as build_motion_tools
 from rosa_turbopi.tools.status import build_tools
 from rosa_turbopi.tools.suggest_picture import build_tools as build_vision_tools
 
+
 class BridgeTools:
     def __init__(self, tools: list):
         self._tools = tools
