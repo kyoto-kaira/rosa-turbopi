@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 
 from rosa_turbopi.robot.client import TurboPiClient
 
-DEFAULT_MODEL_PATH = "weights/yolov8s-worldv2.pt"
+DEFAULT_MODEL_PATH = "weights/yoloe-26s-seg.pt"
 SNAPSHOT_PORT = 8080
 
 
@@ -18,6 +18,23 @@ def build_tools(robot: TurboPiClient) -> list:
     url = f"http://{host}:{SNAPSHOT_PORT}/snapshot?topic=/image_raw"
     model_path = os.getenv("YOLOE_MODEL", DEFAULT_MODEL_PATH)
     model = None
+    current_classes: list[str] = []
+    default_classes = ["red cube", "red ball", "blue ball", "light green ball",    "person", "bicycle", "car", "motorcycle", "airplane",
+    "bus", "train", "truck", "boat", "traffic light",
+    "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow",
+    "elephant", "bear", "zebra", "giraffe", "backpack",
+    "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    "skis", "snowboard", "sports ball", "kite", "baseball bat",
+    "baseball glove", "skateboard", "surfboard", "tennis racket",
+    "bottle", "wine glass", "cup", "fork", "knife", "spoon",
+    "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+    "carrot", "hot dog", "pizza", "donut", "cake", "chair",
+    "couch", "potted plant", "bed", "dining table", "toilet",
+    "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+    "microwave", "oven", "toaster", "sink", "refrigerator",
+    "book", "clock", "vase", "scissors", "teddy bear",
+    "hair drier", "toothbrush"]
 
     def horizontal(x_center: float, width: int) -> str:
         if x_center < width / 3:
@@ -52,8 +69,10 @@ def build_tools(robot: TurboPiClient) -> list:
 
             if model is None:
                 model = YOLOE(model_path)
-            if target_classes:
-                model.set_classes(target_classes)
+            names = list(dict.fromkeys((target_classes or []) + default_classes))
+            if names != current_classes:
+                model.set_classes(names, model.get_text_pe(names))
+                current_classes[:] = names
 
             with urllib.request.urlopen(url, timeout=timeout) as res:
                 data = res.read()
@@ -74,6 +93,7 @@ def build_tools(robot: TurboPiClient) -> list:
                         "horizontal": horizontal((x1 + x2) / 2, width),
                     }
                 )
+            
             return {
                 "state": "completed",
                 "image": {"width": width, "height": height},
@@ -82,7 +102,11 @@ def build_tools(robot: TurboPiClient) -> list:
             }
         except ImportError:
             return {"state": "failed", "error": "uv sync --group vision が必要です"}
-        except (OSError, ValueError, RuntimeError, TimeoutError) as exc:
-            return {"state": "failed", "error": str(exc), "simulated": False}
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "state": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+                "simulated": False,
+            }
 
     return [detect_objects]
