@@ -9,7 +9,7 @@ from rosa_turbopi.prompts import SYSTEM_PROMPT
 from rosa_turbopi.robot.client import TurboPiClient
 from rosa_turbopi.tools.motion import build_tools as build_motion_tools
 from rosa_turbopi.tools.status import build_tools
-
+from rosa_turbopi.tools.suggest_picture import build_tools as build_vision_tools
 
 class BridgeTools:
     def __init__(self, tools: list):
@@ -37,7 +37,7 @@ def build_agent(robot: TurboPiClient) -> ROSA:
     return RosbridgeROSA(
         ros_version=2,
         llm=llm,
-        tools=build_tools(robot) + build_motion_tools(robot),
+        tools=build_tools(robot) + build_motion_tools(robot) + build_vision_tools(robot),
         prompts=RobotSystemPrompts(embodiment_and_persona=SYSTEM_PROMPT),
         streaming=False,
         max_iterations=robot.settings.agent_max_iterations,
