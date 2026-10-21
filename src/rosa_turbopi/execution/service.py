@@ -94,6 +94,18 @@ class ExecutionService:
                 if self.cancelled.is_set():
                     run.state, run.reply = "cancelled", "指示を取り消しました。"
 
+    def reset(self):
+        """Discard history and agent memory without reconnecting the robot."""
+        with self.lock:
+            if self.closed or (self.worker and self.worker.is_alive()):
+                raise RuntimeError(
+                    "実行中は会話をリセットできません。処理の終了後にお試しください。"
+                )
+            self.runs.clear()
+            self.agent = None
+            self.worker = None
+            self.cancelled.clear()
+
     def stop(self):
         self.cancelled.set()
         self.robot.motion.block(True)

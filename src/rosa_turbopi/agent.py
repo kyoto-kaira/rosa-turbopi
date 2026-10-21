@@ -7,8 +7,7 @@ from rosa import ROSA, RobotSystemPrompts
 
 from rosa_turbopi.prompts import SYSTEM_PROMPT
 from rosa_turbopi.robot.client import TurboPiClient
-from rosa_turbopi.tools.motion import build_tools as build_motion_tools
-from rosa_turbopi.tools.status import build_tools
+from rosa_turbopi.tools.catalog import build_tools
 
 
 class BridgeTools:
@@ -34,7 +33,7 @@ def build_agent(robot: TurboPiClient, observe=None) -> ROSA:
     if not robot.settings.model or not os.getenv("OPENAI_API_KEY"):
         raise ValueError("Set LLM_MODEL and OPENAI_API_KEY for chat")
     llm = ChatOpenAI(model=robot.settings.model, temperature=0)
-    tools = build_tools(robot) + build_motion_tools(robot)
+    tools = build_tools(robot)
     if observe is not None:
         tools = [observe(tool) for tool in tools]
     return RosbridgeROSA(

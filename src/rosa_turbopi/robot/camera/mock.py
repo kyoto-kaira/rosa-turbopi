@@ -14,6 +14,5 @@ class MockCamera:
         <path d="M480 310L80 540M480 310L880 540M0 400H960M0 480H960" stroke="#48616a" fill="none"/>
         <rect x="340" y="240" width="110" height="130" rx="8" fill="#d76952"/>
         <circle cx="650" cy="340" r="45" fill="#e3ba69"/>
-        <text x="32" y="48" fill="#b7d8d3" font-family="sans-serif" font-size="22">MOCK CAMERA / TURBOPI</text>
         </svg>"""
         return Frame(str(uuid4()), datetime.now(UTC), scene, "image/svg+xml")

@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from rosa_turbopi.execution.service import ExecutionService
 from rosa_turbopi.robot.client import TurboPiClient
 from rosa_turbopi.settings import Settings
+from rosa_turbopi.tools.catalog import describe_tools
 from rosa_turbopi.transport.mock import MockTransport
 from rosa_turbopi.transport.rosbridge import RosbridgeClient
 
@@ -34,6 +35,7 @@ def create_app(settings=None, agent_factory=None):
         app.state.service = service
         app.state.robot = robot
         app.state.notice = ""
+        app.state.notice_error = False
         try:
             await asyncio.to_thread(transport.connect, timeout=config.timeout_s)
             yield
@@ -59,6 +61,7 @@ def create_app(settings=None, agent_factory=None):
                 "busy": any(r.state == "running" for r in runs),
                 "status": request.app.state.robot.status(),
                 "notice": request.app.state.notice,
+                "notice_error": request.app.state.notice_error,
                 "labels": {
                     "running": "実行中",
                     "completed": "完了",
@@ -81,9 +84,25 @@ def create_app(settings=None, agent_factory=None):
                 raise ValueError("指示は1〜4000文字で入力してください。")
             request.app.state.service.submit(query)
             request.app.state.notice = ""
+            request.app.state.notice_error = False
         except (RuntimeError, ValueError) as exc:
             request.app.state.notice = str(exc)
+            request.app.state.notice_error = True
         return render(request)
+
+    @app.post("/conversation/reset", response_class=HTMLResponse)
+    def reset(request: Request):
+        try:
+            request.app.state.service.reset()
+        except RuntimeError as exc:
+            request.app.state.notice = str(exc)
+            request.app.state.notice_error = True
+            return render(request)
+        request.app.state.notice = ""
+        request.app.state.notice_error = False
+        response = render(request)
+        response.headers["HX-Trigger"] = "conversationReset"
+        return response
 
     @app.get("/runs/{run_id}", response_class=HTMLResponse)
     def history(request: Request, run_id: str):
@@ -93,6 +112,7 @@ def create_app(settings=None, agent_factory=None):
     def stop(request: Request):
         try:
             result = request.app.state.service.stop()
+            request.app.state.notice_error = False
             request.app.state.notice = (
                 "停止指令は無効です。"
                 if result["state"] == "disabled"
@@ -100,7 +120,16 @@ def create_app(settings=None, agent_factory=None):
             )
         except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
             request.app.state.notice = f"停止処理に失敗しました: {exc}"
+            request.app.state.notice_error = True
         return render(request)
+
+    @app.get("/tools", response_class=HTMLResponse)
+    def tools(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tools.html",
+            context={"groups": describe_tools(request.app.state.robot)},
+        )
 
     @app.get("/camera")
     def camera(request: Request):
