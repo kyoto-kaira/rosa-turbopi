@@ -30,6 +30,7 @@ class MotionExecutor:
         self._wait = wait if wait is not None else self._cancel.wait
         self._lock = Lock()
         self._stopping = False
+        self._blocked = False
         self._thread = None
         self._state = "idle"
         self._error = None
@@ -41,6 +42,11 @@ class MotionExecutor:
     def status(self) -> dict:
         with self._lock:
             return {"state": self._state, "error": self._error, "simulated": self.simulated}
+
+    def block(self, blocked: bool) -> None:
+        """Prevent subsequent motion after an execution is cancelled."""
+        with self._lock:
+            self._blocked = blocked
 
     def start(self, vx: float, vy: float, wz: float, duration_s: float) -> dict:
         if not self._enabled:
@@ -60,6 +66,8 @@ class MotionExecutor:
         if not 0 < duration_s <= self.MAX_DURATION:
             raise ValueError("Duration must be greater than 0 and at most 3 seconds")
         with self._lock:
+            if self._blocked:
+                raise RuntimeError("Execution cancelled")
             if self._stopping or (self._thread is not None and self._thread.is_alive()):
                 raise RuntimeError("Movement already active; stop it first")
             if not self._transport.connected:

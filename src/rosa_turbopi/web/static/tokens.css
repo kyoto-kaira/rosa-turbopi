@@ -1,0 +1,33 @@
+/* KaiRA palette: https://github.com/kyoto-kaira/kyoto-kaira.github.io/blob/master/DESIGN.md */
+:root {
+  color-scheme: light;
+  --color-brand: #0171c0;
+  --color-brand-deep: #123b68;
+  --color-accent-text: #0171c0;
+  --color-accent-fill: #0171c0;
+  --color-accent-hover: #0b5ea8;
+  --color-accent-tint: #f0f7fc;
+  --color-text: #111827;
+  --color-text-secondary: #475569;
+  --color-border: #e5e7eb;
+  --color-border-strong: #cbd5e1;
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f8fafc;
+  --color-on-accent: #ffffff;
+  --color-danger: #b42318;
+  --color-danger-tint: #fff1f0;
+  --color-warning: #8a5700;
+  --color-success: #0171c0;
+  --color-running: #7c93a8;
+  --color-running-text: #50677d;
+  --color-running-tint: #eef3f7;
+  --font-sans: "Inter", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}
+@media (prefers-contrast: more) {
+  :root {
+    --color-text-secondary: #1e293b;
+    --color-border: #64748b;
+    --color-border-strong: #475569;
+  }
+}
