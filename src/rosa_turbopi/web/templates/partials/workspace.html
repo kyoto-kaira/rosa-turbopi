@@ -1,0 +1,9 @@
+<section class="timeline panel"><div class="section-title"><h2>02 / EXECUTION</h2><span class="badge">{{ status.backend }} / {{ '接続中' if status.connected else '未接続' }}</span></div>
+<div class="scroll"><h3>{{ selected.query if selected else 'ツール実行タイムライン' }}</h3>
+{% if selected %}<p class="muted">{{ labels[selected.state] }} · {{ selected.started_at }}</p>{% endif %}
+{% if not selected or not selected.calls %}<p class="empty">{{ 'ROSAが指示を処理しています…' if selected and selected.state == 'running' else 'ツールが実行されると、ここに処理の流れが表示されます。' }}</p>{% endif %}
+{% if selected %}{% for call in selected.calls %}<article class="tool {{ call.state }}"><div><strong>{{ call.name }}</strong><span>{{ labels[call.state] }} · {{ call.elapsed }}s</span></div><details><summary>引数・結果</summary><pre>{{ call.arguments | tojson(indent=2) }}</pre><pre>{{ call.result | tojson(indent=2) }}</pre></details></article>{% endfor %}{% endif %}</div></section>
+<section class="chat panel"><h2>03 / CONVERSATION</h2><div class="scroll" id="chat-history">
+{% if not runs %}<p class="empty">日本語で指示して、ROSAの動作を確認しましょう。</p>{% endif %}
+{% for run in runs %}<article class="message"><button class="query {{ 'selected' if selected and selected.id == run.id else '' }}" hx-get="/runs/{{ run.id }}" hx-target="#workspace" data-run-id="{{ run.id }}">あなた / {{ run.query }}</button><p><span class="muted">ROSA / </span>{{ run.reply or '処理中…' }}</p></article>{% endfor %}</div></section>
+<div id="execution-state" data-busy="{{ 'true' if busy else 'false' }}" role="status">{{ notice }}</div>

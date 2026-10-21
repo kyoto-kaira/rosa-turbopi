@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ROSA · TurboPi Console</title><link rel="stylesheet" href="/static/app.css">
+<script src="/static/vendor/htmx.min.js" defer></script>
+<script src="/static/vendor/htmx-ext-sse.js" defer></script>
+<script src="/static/app.js" defer></script></head>
+<body><header><div><strong>ROSA</strong> <span>TURBOPI CONSOLE</span></div>
+<button class="stop" hx-post="/stop" hx-target="#workspace">■ 停止</button></header>
+<main><div class="upper"><section class="camera panel"><h2>01 / CAMERA</h2>
+{% if status.backend == 'mock' %}<span class="badge">MOCK CAMERA</span><img src="/camera" alt="ロボット視点のモック画像">
+{% else %}<div class="unavailable">映像未接続</div>{% endif %}
+<footer>ロボットの視点 / {% if status.backend == 'mock' %}サンプル画像{% else %}取得機能は準備中{% endif %}</footer></section>
+<div hx-ext="sse" sse-connect="/events" class="live-region"><div id="workspace" sse-swap="workspace" hx-swap="innerHTML">{% include 'partials/workspace.html' %}</div></div>
+</div><form hx-post="/chat" hx-target="#workspace" id="chat-form"><label for="query">ロボットへの指示</label><div class="input-row"><input id="query" name="query" required maxlength="4000" placeholder="例：標準速度で1秒前進して" autocomplete="off"><button id="send" type="submit">送信 ↗</button></div></form></main></body></html>
