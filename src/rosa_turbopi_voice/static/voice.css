@@ -1,0 +1,27 @@
+#voice-record {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  flex-shrink: 0;
+  padding: 10px;
+}
+#voice-record svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#voice-record[aria-pressed="true"] {
+  background: var(--color-danger-tint);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+#voice-status { min-height: 1.5em; margin: 0.5rem 0 0; font-size: 0.85rem; }
+@media (max-width: 540px) {
+  #chat-form .input-row { flex-wrap: wrap; }
+  #chat-form .input-row input { flex-basis: 100%; }
+}
