@@ -217,3 +217,17 @@ htmxとSSE拡張は同梱しているため、画面表示にCDN接続は不要�
 
 Web用コードは `web/`、HTMLに依存しない実行管理は `execution/`、
 カメラ機能は `robot/camera/` に配置しています。
+
+## 音声入力拡張
+
+既存Web UIの外側に、PCのマイクによる音声入力を追加できます。
+録音をOpenAIで文字起こしし、入力欄で確認・修正してから送信します。
+`OPENAI_API_KEY` は会話と共用し、音声用モデルは `VOICE_TRANSCRIBE_MODEL` で指定できます。
+
+```sh
+uv sync --frozen
+uv run rosa-turbopi-voice-web
+```
+
+既存Webサーバーを終了してから起動してください。
+詳細・接続条件・制限は [音声入力拡張](docs/voice-input.md) を参照してください。
