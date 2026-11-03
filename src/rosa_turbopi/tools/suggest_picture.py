@@ -7,6 +7,7 @@ import urllib.request
 from langchain_core.tools import tool
 
 from rosa_turbopi.robot.client import TurboPiClient
+from rosa_turbopi.robot.perception.classes import DEFAULT_CLASSES
 
 DEFAULT_MODEL_PATH = "weights/yoloe-26s-seg.pt"
 SNAPSHOT_PORT = 8080
@@ -19,92 +20,6 @@ def build_tools(robot: TurboPiClient) -> list:
     model_path = os.getenv("YOLOE_MODEL", DEFAULT_MODEL_PATH)
     model = None
     current_classes: list[str] = []
-    default_classes = [
-        "red cube",
-        "red ball",
-        "blue ball",
-        "light green ball",
-        "person",
-        "bicycle",
-        "car",
-        "motorcycle",
-        "airplane",
-        "bus",
-        "train",
-        "truck",
-        "boat",
-        "traffic light",
-        "fire hydrant",
-        "stop sign",
-        "parking meter",
-        "bench",
-        "bird",
-        "cat",
-        "dog",
-        "horse",
-        "sheep",
-        "cow",
-        "elephant",
-        "bear",
-        "zebra",
-        "giraffe",
-        "backpack",
-        "umbrella",
-        "handbag",
-        "tie",
-        "suitcase",
-        "frisbee",
-        "skis",
-        "snowboard",
-        "sports ball",
-        "kite",
-        "baseball bat",
-        "baseball glove",
-        "skateboard",
-        "surfboard",
-        "tennis racket",
-        "bottle",
-        "wine glass",
-        "cup",
-        "fork",
-        "knife",
-        "spoon",
-        "bowl",
-        "banana",
-        "apple",
-        "sandwich",
-        "orange",
-        "broccoli",
-        "carrot",
-        "hot dog",
-        "pizza",
-        "donut",
-        "cake",
-        "chair",
-        "couch",
-        "potted plant",
-        "bed",
-        "dining table",
-        "toilet",
-        "tv",
-        "laptop",
-        "mouse",
-        "remote",
-        "keyboard",
-        "cell phone",
-        "microwave",
-        "oven",
-        "toaster",
-        "sink",
-        "refrigerator",
-        "book",
-        "clock",
-        "vase",
-        "scissors",
-        "teddy bear",
-        "hair drier",
-        "toothbrush",
-    ]
 
     def horizontal(x_center: float, width: int) -> str:
         if x_center < width / 3:
@@ -139,7 +54,7 @@ def build_tools(robot: TurboPiClient) -> list:
 
             if model is None:
                 model = YOLOE(model_path)
-            names = list(dict.fromkeys((target_classes or []) + default_classes))
+            names = list(dict.fromkeys((target_classes or []) + DEFAULT_CLASSES))
             if names != current_classes:
                 model.set_classes(names, model.get_text_pe(names))
                 current_classes[:] = names
