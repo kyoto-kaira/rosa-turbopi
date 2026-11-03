@@ -4,13 +4,27 @@ version = "0.1.0"
 description = "Natural-language TurboPi interface using ROSA and rosbridge"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
-dependencies = ["jpl-rosa==1.0.10", "roslibpy>=1.8,<2", "python-dotenv>=1.0.1", "PyYAML==6.0.1"]
+dependencies = [
+    "jpl-rosa==1.0.10",
+    "roslibpy>=1.8,<2",
+    "python-dotenv>=1.0.1",
+    "PyYAML==6.0.1",
+    "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
+    "uvicorn>=0.34,<1",
+    "python-multipart>=0.0.20",
+]
 
 [project.scripts]
 rosa-turbopi = "rosa_turbopi.cli:main"
+rosa-turbopi-web = "rosa_turbopi.web.app:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
+dev = [
+    "httpx>=0.28,<1",
+    "pytest>=8,<9",
+    "ruff>=0.11,<1",
+]
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]

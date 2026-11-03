@@ -1,0 +1,14 @@
+<p class="muted tools-intro">現在の設定でROSAが使用できるツールです。</p>
+{% for group in groups %}
+<section class="tool-group"><h3>{{ group.name }}</h3>
+{% for tool in group.tools %}
+<details class="catalog-tool"><summary><span>{{ tool.title }}</span><code>{{ tool.name }}</code></summary>
+<p class="tool-description">{{ tool.description }}</p>
+{% if tool.arguments %}
+<div class="tool-arguments"><table><caption>引数</caption><thead><tr><th>名前・型</th><th>指定</th><th>既定値</th></tr></thead><tbody>
+{% for arg in tool.arguments %}<tr><td><code>{{ arg.name }}</code><br><span class="muted">{{ arg.type }}</span>{% if arg.description %}<p>{{ arg.description }}</p>{% endif %}</td><td>{{ '必須' if arg.required else '任意' }}</td><td>{% if arg.required %}—{% else %}{{ arg.default | tojson }}{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted">引数なし</p>{% endif %}
+</details>
+{% endfor %}</section>
+{% endfor %}

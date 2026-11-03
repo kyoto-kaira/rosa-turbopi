@@ -1,5 +1,6 @@
 """Robot operations exposed to agent tools."""
 
+from rosa_turbopi.robot.camera.mock import MockCamera
 from rosa_turbopi.robot.motion import MotionExecutor
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.transport.rosbridge import RosbridgeClient
@@ -10,6 +11,7 @@ class TurboPiClient:
         self.transport = transport
         self.settings = settings
         self.motion = MotionExecutor(transport)
+        self.camera = MockCamera() if settings.backend == "mock" else None
 
     def status(self) -> dict:
         return {
