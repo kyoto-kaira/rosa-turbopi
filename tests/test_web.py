@@ -208,4 +208,8 @@ def test_tool_catalog_matches_agent_registry_without_llm(monkeypatch):
         response = client.get("/tools")
         assert "get_battery" in response.text
         assert "move_forward" not in response.text
-        assert {t.name for t in build_tools(robot)} == {"get_connection_status", "get_battery"}
+        assert {t.name for t in build_tools(robot)} == {
+            "get_connection_status",
+            "get_battery",
+            "detect_objects",
+        }

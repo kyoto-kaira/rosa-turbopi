@@ -19,6 +19,9 @@ class Settings:
     enable_motion: bool = True
     agent_max_iterations: int = 15
     agent_verbose: bool = False
+    camera_port: int = 8080
+    camera_topic: str = "/image_raw"
+    camera_timeout_s: float = 5.0
 
     @classmethod
     def load(cls) -> "Settings":
@@ -44,6 +47,15 @@ class Settings:
         verbose = os.getenv("AGENT_VERBOSE", "false").lower()
         if verbose not in {"true", "false"}:
             raise ValueError("AGENT_VERBOSE must be true or false")
+        camera_port = int(os.getenv("CAMERA_PORT", "8080"))
+        camera_timeout = float(os.getenv("CAMERA_TIMEOUT_S", "5"))
+        camera_topic = os.getenv("CAMERA_TOPIC", "/image_raw")
+        if not 1 <= camera_port <= 65535 or not 0 < camera_timeout <= 60:
+            raise ValueError(
+                "Invalid camera port or timeout (timeout must be 0–60 seconds, exclusive of 0)"
+            )
+        if not camera_topic.startswith("/") or any(c.isspace() for c in camera_topic):
+            raise ValueError("CAMERA_TOPIC must start with / and contain no whitespace")
         return cls(
             host=os.getenv("ROSBRIDGE_HOST", "127.0.0.1"),
             port=port,
@@ -56,4 +68,7 @@ class Settings:
             enable_motion=enable_motion == "true",
             agent_max_iterations=iterations,
             agent_verbose=verbose == "true",
+            camera_port=camera_port,
+            camera_topic=camera_topic,
+            camera_timeout_s=camera_timeout,
         )
