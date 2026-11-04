@@ -199,3 +199,23 @@ def test_failed_class_change_is_retried_on_the_next_call(detector, model):
     model.fail_set = False
     detector.detect(make_frame(), ["person"])
     assert model.set_calls == [["person"], ["person"]]
+
+
+def test_missing_ultralytics_is_an_inference_error_with_install_hint(monkeypatch):
+    import sys
+
+    from rosa_turbopi.robot.perception.detector import load_yoloe
+
+    monkeypatch.setitem(sys.modules, "ultralytics", None)
+    with pytest.raises(InferenceError, match="uv sync --group vision"):
+        load_yoloe("weights/x.pt")
+
+
+def test_missing_opencv_is_an_inference_error_with_install_hint(monkeypatch):
+    import sys
+
+    from rosa_turbopi.robot.perception.detector import decode_with_cv2
+
+    monkeypatch.setitem(sys.modules, "cv2", None)
+    with pytest.raises(InferenceError, match="uv sync --group vision"):
+        decode_with_cv2(b"x")

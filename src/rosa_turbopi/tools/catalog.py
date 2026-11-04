@@ -2,7 +2,7 @@
 
 from rosa_turbopi.tools.motion import build_tools as build_motion_tools
 from rosa_turbopi.tools.status import build_tools as build_status_tools
-from rosa_turbopi.tools.suggest_picture import build_tools as build_vision_tools
+from rosa_turbopi.tools.vision import build_tools as build_vision_tools
 
 TITLES = {
     "get_connection_status": "接続・動作状態を確認する",

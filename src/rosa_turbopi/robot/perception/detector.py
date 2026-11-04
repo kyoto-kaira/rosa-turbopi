@@ -16,14 +16,19 @@ Decoder = Callable[[bytes], tuple[Any, int, int]]
 
 
 def load_yoloe(model_path: str) -> Any:
-    from ultralytics import YOLOE  # optional dependency: uv sync --group vision
-
+    try:
+        from ultralytics import YOLOE
+    except ImportError as exc:
+        raise InferenceError("ultralytics is not installed (uv sync --group vision)") from exc
     return YOLOE(model_path)
 
 
 def decode_with_cv2(data: bytes) -> tuple[Any, int, int]:
-    import cv2
-    import numpy as np
+    try:
+        import cv2
+        import numpy as np
+    except ImportError as exc:
+        raise InferenceError("opencv-python is not installed (uv sync --group vision)") from exc
 
     image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if image is None:
