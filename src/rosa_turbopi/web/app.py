@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from rosa_turbopi.execution.service import ExecutionService
+from rosa_turbopi.robot.camera.source import CaptureError
 from rosa_turbopi.robot.client import TurboPiClient
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.tools.catalog import describe_tools
@@ -136,7 +137,16 @@ def create_app(settings=None, agent_factory=None):
         camera = request.app.state.robot.camera
         if camera is None:
             return Response(status_code=204)
-        frame = camera.capture()
+        try:
+            frame = camera.capture()
+        except CaptureError as exc:
+            # The robot's camera did not answer; report it instead of a server error.
+            return Response(
+                str(exc),
+                status_code=503,
+                media_type="text/plain",
+                headers={"Cache-Control": "no-store"},
+            )
         return Response(
             frame.data,
             media_type=frame.media_type,

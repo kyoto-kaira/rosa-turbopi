@@ -3,6 +3,7 @@ from threading import Event
 from fastapi.testclient import TestClient
 from langchain_core.tools import tool
 
+from rosa_turbopi.robot.camera.source import CaptureError
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.web.app import create_app
 
@@ -53,6 +54,20 @@ def test_camera_and_real_tool_events():
         html = client.get("/runs/" + run.id).text
         assert "&lt;script&gt;" in html
         assert "<script>alert" not in html
+
+
+def test_camera_capture_failure_is_reported_as_unavailable():
+    class UnreachableCamera:
+        def capture(self):
+            raise CaptureError("Could not fetch a snapshot")
+
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        client.app.state.robot.camera = UnreachableCamera()
+        response = client.get("/camera")
+        assert response.status_code == 503
+        assert "Could not fetch a snapshot" in response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert "x-frame-id" not in response.headers
 
 
 def test_stop_blocks_later_tools_and_duplicate_submission():
