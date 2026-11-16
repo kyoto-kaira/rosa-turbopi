@@ -21,14 +21,14 @@
 
 ## 全体構成
 
-既存 `turbopi` コンテナを変更せず、WebSocketのrosbridgeを境界として接続します。カメラの静止画だけは、同じ既存コンテナの `web_video_server` からHTTPで取得します。TurboPiのソース・SDK・コンテナイメージを本リポジトリへ取り込まず、Dockerソケットもマウントしません。ROSA側は専用コンテナと `uv run` のどちらでも実行できます。
+既存 `turbopi` コンテナを変更せず、WebSocketのrosbridgeを境界として接続します。カメラの静止画だけは、同じ既存コンテナの `web_video_server` からHTTPで取得します。TurboPiのソース・SDK・コンテナイメージを本リポジトリへ取り込まず、Dockerソケットもマウントしません。ROSA側は専用Dockerコンテナでの実行を標準とし、開発時などには `uv run` でも実行できます。
 
 ```mermaid
 flowchart TB
     User["ユーザー：日本語入力"]
 
     subgraph Host["Raspberry Pi ホスト"]
-        subgraph ROSA["ROSA側：専用コンテナ または uv run"]
+        subgraph ROSA["ROSA側：専用Dockerコンテナ（標準）"]
             CLI["日本語CLI"]
             Web["Web UI<br/>FastAPI・Jinja2・htmx"]
             Execution["ExecutionService<br/>履歴・実行・取消"]
@@ -118,7 +118,7 @@ FastAPIをHTTPサーバー、Jinja2をHTMLテンプレート、htmxを部分更�
 | `robot/perception/` | YOLOEによる物体検出・検出結果の型 |
 | `tools/vision.py` | 撮影と物体検出をつなぐROSA向けツール |
 
-起動は `ROBOT_BACKEND=mock uv run rosa-turbopi-web` です。既定では `127.0.0.1:8000` にバインドします。認証やブラウザごとのセッション分離は実装していません。
+起動は `docker compose run --rm --entrypoint rosa-turbopi-web rosa` です。モックで試す場合は `--entrypoint` の前に `-e ROBOT_BACKEND=mock` を指定します。既定では `127.0.0.1:8000` にバインドします。認証やブラウザごとのセッション分離は実装していません。
 
 ### 指示実行と画面更新
 

@@ -2,31 +2,24 @@
 
 日本語のCLIから [NASA JPL ROSA](https://github.com/nasa-jpl/rosa) を使い、TurboPiを操作する独立したPythonアプリです。実機では既存コンテナのrosbridgeへ接続し、モックでは機体に接続せず操作を確認できます。既存コンテナの変更、ローカルへのROSインストール、ベンダーSDKは不要です。
 
-## 共通の準備
+## セットアップ
 
-リポジトリのルートで実行してください。ローカル実行にはPython 3.11 / 3.12とuv、コンテナ実行にはDocker Compose（Linux / Raspberry Pi）を使用します。
-
-`.env` がない場合だけ、設定例をコピーします。
+標準の実行方法はDocker Compose（Linux / Raspberry Pi）です。以下はリポジトリのルートで実行してください。ホストにPython・uv・ROSをインストールする必要はありません。ローカル実行は[補足](#ローカル実行補足)を参照してください。
 
 ```sh
 cp .env.example .env
 ```
 
-ローカル実行では依存関係をインストールします。
+重みの共有ディレクトリを作成し、専用イメージをビルドします。物体検出用の依存関係も含むため、初回ビルドには時間とディスク容量が必要です。
 
 ```sh
-uv sync --frozen
-```
-
-Dockerで実行する場合は専用イメージをビルドします。
-
-```sh
+mkdir -p weights
 docker compose build
 ```
 
 `chat` を使う場合は `.env` に `OPENAI_API_KEY` とtool calling対応の `LLM_MODEL` を設定します。`OPENAI_BASE_URL` は別の対応エンドポイントを使う場合の任意設定です。`check`、`battery`、`move`、`stop` はLLMを使いません。
 
-設定変更後はCLIを再起動してください。ローカル実行ではシェルの環境変数が `.env` より優先されます。以前exportした設定が残っている場合は `unset ROBOT_BACKEND ENABLE_MOTION` で解除します。`.env` はGit管理対象外です。
+`.env` はComposeがコンテナへ渡します。設定変更後は実行中のCLI・Webを終了し、`docker compose run` で起動し直してください。`.env` はGit管理対象外です。
 
 ## 実機での実行
 
@@ -45,16 +38,9 @@ ROSBRIDGE_SECURE=false
 ROSBRIDGE_TIMEOUT_S=5
 ```
 
-移動・停止は既定で有効です。読み取りだけを行う場合は `ENABLE_MOTION=false` に変更してください。。`ROSBRIDGE_TIMEOUT_S` は接続・読み取りの待ち時間であり、走行の停止期限ではありません。
+移動・停止は既定で有効です。読み取りだけを行う場合は `ENABLE_MOTION=false` に変更してください。`ROSBRIDGE_TIMEOUT_S` は接続・読み取りの待ち時間であり、走行の停止期限ではありません。
 
 ### 接続・バッテリーの確認
-
-```sh
-uv run rosa-turbopi check
-uv run rosa-turbopi battery
-```
-
-Dockerの場合:
 
 ```sh
 docker compose run --rm rosa check
@@ -64,15 +50,6 @@ docker compose run --rm rosa battery
 バッテリーは生値を返します。単位・残量換算は未確認です。
 
 ### 移動・日本語対話
-
-
-```sh
-uv run rosa-turbopi move --vx 0.5 --duration 0.5
-uv run rosa-turbopi stop
-uv run rosa-turbopi chat
-```
-
-Dockerの場合:
 
 ```sh
 docker compose run --rm rosa move --vx 0.5 --duration 0.5
@@ -96,16 +73,6 @@ ENABLE_MOTION=false
 ```
 
 ### 移動・日本語対話
-
-```sh
-# LLMなしで指令ログと終了状態を確認
-uv run rosa-turbopi move --vx 0.5 --duration 1
-
-# 日本語で操作
-uv run rosa-turbopi chat
-```
-
-Dockerの場合:
 
 ```sh
 docker compose run --rm rosa move --vx 0.5 --duration 1
@@ -146,16 +113,9 @@ docker compose run --rm rosa chat
 
 ### 準備
 
-検出用の依存関係（Ultralytics・PyTorchなど）は標準でインストールされます。共通の準備の `uv sync --frozen` だけで利用でき、追加インストールは不要です。Dockerイメージにも検出用の依存関係とOpenCV用のシステムライブラリを含みます。PyTorchを含むため、初回インストール・ビルドには時間とディスク容量が必要です。
+共通の準備でビルドしたDockerイメージには、検出用の依存関係（Ultralytics・PyTorchなど）とOpenCV用のシステムライブラリが含まれます。追加インストールは不要です。
 
 モデルは既定で `weights/yoloe-26s-seg.pt` を使います。ファイルがない場合は、最初の検出時にUltralyticsが重みとテキストエンコーダーをダウンロードします（インターネット接続が必要です）。別の重みは `YOLOE_MODEL` で指定します。`weights/` と `*.pt` はGit管理対象外です。
-
-Dockerの場合はイメージを再ビルドして起動します。
-
-```sh
-docker compose build
-docker compose run --rm rosa chat
-```
 
 コンテナの作業ディレクトリは `/data` です。ホストの `./weights` を `/data/weights` にマウントするため、既存の `weights/yoloe-26s-seg.pt` をそのまま利用できます。重みがなければ同じホストディレクトリにダウンロードします。`weights/` がない場合は、起動前に `mkdir -p weights` で作成してください。
 
@@ -165,7 +125,30 @@ docker compose run --rm rosa chat
 docker compose build --build-arg APP_UID="$(id -u)" --build-arg APP_GID="$(id -g)"
 ```
 
-テキストエンコーダー・キャッシュは名前付きボリューム `vision-data` に保持するため、`--rm` で終了しても次回に再利用できます。ルートファイルシステムは読み取り専用のまま、`/data` と一時領域のみ書き込み可能です。`docker compose down -v` はこのボリュームを削除しますが、ホストの `weights/` は残ります。別の重みを使う場合は `weights/` に配置し、`YOLOE_MODEL=weights/ファイル名.pt` を指定してください。
+ローカル・Dockerとも、MobileCLIPのテキストエンコーダーはモデルと同じディレクトリから読み込み、未取得ならそこへダウンロードします。YOLOE-26では `mobileclip2_b.ts` を使います。既定のモデルならホストの `weights/` に配置することで、同じマウントから読み込めます。初回の検出前に両方のファイルを揃えておくと、モデルとエンコーダーのダウンロードを省けます。
+
+```text
+weights/
+├── yoloe-26s-seg.pt
+└── mobileclip2_b.ts
+```
+
+エンコーダーを事前取得する場合:
+
+```sh
+mkdir -p weights
+curl -fL --retry 3 -o weights/mobileclip2_b.ts \
+  https://github.com/ultralytics/assets/releases/download/v8.4.0/mobileclip2_b.ts
+```
+
+初回検出でボリュームの `/data/mobileclip2_b.ts` に取得済みなら、次でホスト側へコピーできます。
+
+```sh
+docker compose run --rm --entrypoint sh rosa -c \
+  'cp -n /data/mobileclip2_b.ts /data/weights/mobileclip2_b.ts'
+```
+
+別の重みを使う場合は `weights/` に配置し、`YOLOE_MODEL=weights/ファイル名.pt` を指定してください。
 
 ### 設定
 
@@ -202,7 +185,7 @@ ENABLE_MOTION=false
 ```
 
 ```sh
-uv run rosa-turbopi chat
+docker compose run --rm rosa chat
 ```
 
 入力例:「青いボールはある？」「何が見える？」。探す物体を指定しない場合は、一般的な物体と色付きのボールを探します。
@@ -210,17 +193,6 @@ uv run rosa-turbopi chat
 結果の `state` は `completed`（検出処理完了）か `failed`（失敗）です。`completed` は、フレームID・画像サイズ・検出一覧（ラベル・信頼度・元画像のピクセル座標・左右3分割の位置）を含みます。見つからなかった場合は、`completed` と空の検出一覧を返します。`failed` は、`stage` が `capture`（撮影の失敗）か `inference`（検出の失敗）です。
 
 検出は1枚の画像による結果で、距離は分かりません。写っていても検出されない場合や、色などを誤る場合があります。検出結果に基づく自動移動は行いません。
-
-## 開発・検証
-
-```sh
-uv run rosa-turbopi --help
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
-```
-
-テストは通信モックとテスト用LLMを使用し、実機・外部LLM APIには接続しません。
 
 ## 構成
 
@@ -265,12 +237,21 @@ rosa-turbopi/
 
 ## Web UI（FastAPI / Jinja2 / htmx）
 
+`.env` のバックエンド設定で起動します。
+
 ```sh
-uv sync --frozen
-ROBOT_BACKEND=mock uv run rosa-turbopi-web
+docker compose run --rm --entrypoint rosa-turbopi-web rosa
 ```
 
-ブラウザで http://127.0.0.1:8000 を開きます。上段にカメラと実行タイムライン、
+モックを一時的に指定する場合:
+
+```sh
+docker compose run --rm -e ROBOT_BACKEND=mock --entrypoint rosa-turbopi-web rosa
+```
+
+Composeはホストネットワークを使うため、ポートの追加公開は不要です。
+
+Dockerを実行しているホストのブラウザで http://127.0.0.1:8000 を開きます。別のPCから使う場合は[SSHトンネルの手順](docs/voice-input.md#dockerでの起動)を参照してください。上段にカメラと実行タイムライン、
 下段に会話履歴と入力欄を表示します。過去の指示を選ぶと対応するツール実行を確認できます。
 ツールの引数・結果は詳細を展開して確認できます。
 
@@ -298,9 +279,40 @@ Web用コードは `web/`、HTMLに依存しない実行管理は `execution/`�
 `OPENAI_API_KEY` は会話と共用し、音声用モデルは `VOICE_TRANSCRIBE_MODEL` で指定できます。
 
 ```sh
-uv sync --frozen
-uv run rosa-turbopi-voice-web
+docker compose run --rm --entrypoint rosa-turbopi-voice-web rosa
 ```
 
 既存Webサーバーを終了してから起動してください。
 詳細・接続条件・制限は [音声入力拡張](docs/voice-input.md) を参照してください。
+
+## ローカル実行
+
+Dockerを使わずに実行する場合はPython 3.11 / 3.12とuvが必要です。共通の `.env` を使い、依存関係をインストールしてください。物体検出用の依存関係も標準でインストールされます。環境によってはOpenCV用のシステムライブラリ（Debian系では `libgl1`・`libglib2.0-0`）も必要です。
+
+```sh
+uv sync --frozen
+uv run rosa-turbopi check
+uv run rosa-turbopi chat
+
+# Web UI（どちらか一方を起動）
+uv run rosa-turbopi-web
+uv run rosa-turbopi-voice-web
+```
+
+Dockerの `docker compose run --rm rosa <操作>` は、ローカルでは `uv run rosa-turbopi <操作>` に置き換えます。重み・エンコーダーは同じ `weights/` を利用できます。
+
+ローカル実行ではシェルの環境変数が `.env` より優先されます。以前exportした設定が残っている場合は `unset ROBOT_BACKEND ENABLE_MOTION` で解除します。
+
+## 開発・検証（ローカル）
+
+開発用ツールはローカル環境で実行します。Dockerイメージには開発用依存関係を含めていません。
+
+```sh
+uv sync --frozen
+uv run rosa-turbopi --help
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
+```
+
+テストは通信モックとテスト用LLMを使用し、実機・外部LLM APIには接続しません。

@@ -2,6 +2,7 @@
 
 import threading
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 from rosa_turbopi.robot.camera.source import Frame
@@ -20,7 +21,20 @@ def load_yoloe(model_path: str) -> Any:
         from ultralytics import YOLOE
     except ImportError as exc:
         raise InferenceError("ultralytics is not installed (uv sync --frozen)") from exc
-    return YOLOE(model_path)
+    model = YOLOE(model_path)
+    # Ultralytics otherwise downloads MobileCLIP into the process working directory.
+    # Pass an explicit path so local runs and Docker share the mounted weights folder.
+    variant = getattr(model.model, "text_model", "mobileclip:blt").split(":")[0]
+    encoder_files = {"mobileclip": "mobileclip_blt.ts", "mobileclip2": "mobileclip2_b.ts"}
+    if variant in encoder_files:
+        from ultralytics.nn.text_model import MobileCLIPTS
+
+        directory = Path(model_path).resolve().parent
+        directory.mkdir(parents=True, exist_ok=True)
+        model.model.clip_model = MobileCLIPTS(
+            model.device, weight=str(directory / encoder_files[variant])
+        )
+    return model
 
 
 def decode_with_cv2(data: bytes) -> tuple[Any, int, int]:
