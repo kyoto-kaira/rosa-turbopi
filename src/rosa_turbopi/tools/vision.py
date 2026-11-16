@@ -1,4 +1,4 @@
-"""Vision tool: take one still image and look for objects (optional: uv sync --group vision)."""
+"""Vision tool: take one still image and look for objects."""
 
 import os
 from functools import lru_cache

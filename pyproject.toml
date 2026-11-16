@@ -14,6 +14,8 @@ dependencies = [
     "uvicorn>=0.34,<1",
     "python-multipart>=0.0.20",
     "openai>=2,<3",
+    "clip",
+    "ultralytics>=8.4.201",
 ]
 
 [project.scripts]
@@ -26,10 +28,6 @@ dev = [
     "httpx>=0.28,<1",
     "pytest>=8,<9",
     "ruff>=0.11,<1",
-]
-vision = [
-    "clip",
-    "ultralytics>=8.4.201",
 ]
 
 [build-system]

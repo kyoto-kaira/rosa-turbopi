@@ -7,9 +7,16 @@ services:
     stdin_open: true
     tty: true
     read_only: true
+    # Persist model weights, text encoders and library caches across --rm runs.
+    volumes:
+      - vision-data:/data
+      - ./weights:/data/weights
     tmpfs:
       - /tmp
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+volumes:
+  vision-data:

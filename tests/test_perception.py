@@ -207,7 +207,7 @@ def test_missing_ultralytics_is_an_inference_error_with_install_hint(monkeypatch
     from rosa_turbopi.robot.perception.detector import load_yoloe
 
     monkeypatch.setitem(sys.modules, "ultralytics", None)
-    with pytest.raises(InferenceError, match="uv sync --group vision"):
+    with pytest.raises(InferenceError, match="uv sync --frozen"):
         load_yoloe("weights/x.pt")
 
 
@@ -217,5 +217,5 @@ def test_missing_opencv_is_an_inference_error_with_install_hint(monkeypatch):
     from rosa_turbopi.robot.perception.detector import decode_with_cv2
 
     monkeypatch.setitem(sys.modules, "cv2", None)
-    with pytest.raises(InferenceError, match="uv sync --group vision"):
+    with pytest.raises(InferenceError, match="uv sync --frozen"):
         decode_with_cv2(b"x")

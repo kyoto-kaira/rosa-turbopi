@@ -204,7 +204,7 @@ flowchart LR
 - `ROBOT_BACKEND=mock`：既存の動作モックと `MockCamera` を使います。画像は固定SVGで、`GET /camera` から返します。
 - `ROBOT_BACKEND=rosbridge`：`HttpSnapshotCamera` が既存コンテナの `web_video_server`（`http://<ROSBRIDGE_HOST>:<CAMERA_PORT>/snapshot?topic=<CAMERA_TOPIC>`）から静止画を1枚取得します。取得できない場合は `CaptureError` を送出します。画面のカメラ欄は実機では「映像未接続」のままで、実カメラ画像の画面表示は未対応です。
 
-認識処理は `robot/perception/` に置き、撮影から独立させています。`YoloeDetector.detect(frame, target_classes)` は `Frame` の画像バイト列だけを入力とし、カメラには接続しません。そのため、保存した画像から作った `Frame` でも同じように推論できます。結果の `DetectionResult` は、入力と同じフレームID、画像の幅・高さ、検出一覧を持ちます。各検出は、ラベル・信頼度・元画像のピクセル座標のbbox・左右3分割の位置です。推論の失敗は `InferenceError` にまとめます。モデルと `ultralytics`・OpenCVは最初の検出時に読み込むため、`vision` 依存グループを入れていない環境でもアプリは起動します。
+認識処理は `robot/perception/` に置き、撮影から独立させています。`YoloeDetector.detect(frame, target_classes)` は `Frame` の画像バイト列だけを入力とし、カメラには接続しません。そのため、保存した画像から作った `Frame` でも同じように推論できます。結果の `DetectionResult` は、入力と同じフレームID、画像の幅・高さ、検出一覧を持ちます。各検出は、ラベル・信頼度・元画像のピクセル座標のbbox・左右3分割の位置です。推論の失敗は `InferenceError` にまとめます。検出用の依存関係は標準でインストールします。モデルと `ultralytics`・OpenCVは最初の検出時に読み込むため、他の操作の起動時にはモデルを読み込みません。
 
 ROSA向けツールは `tools/vision.py` の `detect_objects` で、撮影と推論を順に呼ぶだけの薄いツールです。戻り値は状態・フレームID・画像サイズ・検出一覧を含む辞書で、画像バイト列は含めません。撮影の失敗は `stage: capture`、推論の失敗は `stage: inference`、検出0件は `completed` と空の一覧で区別します。
 
