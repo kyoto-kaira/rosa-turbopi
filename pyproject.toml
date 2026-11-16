@@ -27,6 +27,10 @@ dev = [
     "pytest>=8,<9",
     "ruff>=0.11,<1",
 ]
+vision = [
+    "clip",
+    "ultralytics>=8.4.201",
+]
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]
@@ -41,3 +45,6 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+clip = { git = "https://github.com/ultralytics/CLIP.git" }

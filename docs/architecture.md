@@ -13,7 +13,7 @@
 | execution | Webからの指示のバックグラウンド実行、実行履歴、ツール呼び出しの記録・取消 |
 | ROSA ＋ LLM | ツールの選択と引数の決定、実行結果の説明 |
 | tools | 操作の意味・引数・範囲・戻り値をLLMへ提示 |
-| robot | 速度・時間の検証、定周期実行、取消、終了時停止、カメラ画像の取得 |
+| robot | 速度・時間の検証、定周期実行、取消、終了時停止、カメラ画像の取得、物体検出 |
 | transport | rosbridge通信、またはネットワークを使わないモック |
 | 既存ROS・制御基板 | 速度指令の車輪指令への変換と機体制御 |
 
@@ -21,7 +21,7 @@
 
 ## 全体構成
 
-既存 `turbopi` コンテナを変更せず、WebSocketのrosbridgeを境界として接続します。TurboPiのソース・SDK・コンテナイメージを本リポジトリへ取り込まず、Dockerソケットもマウントしません。ROSA側は専用コンテナと `uv run` のどちらでも実行できます。
+既存 `turbopi` コンテナを変更せず、WebSocketのrosbridgeを境界として接続します。カメラの静止画だけは、同じ既存コンテナの `web_video_server` からHTTPで取得します。TurboPiのソース・SDK・コンテナイメージを本リポジトリへ取り込まず、Dockerソケットもマウントしません。ROSA側は専用コンテナと `uv run` のどちらでも実行できます。
 
 ```mermaid
 flowchart TB
@@ -45,8 +45,9 @@ flowchart TB
                 direction LR
                 Battery["/ros_robot_controller/battery"]
                 CmdVel["/cmd_vel"]
-                Camera["/image_raw/compressed<br/>カメラ連携は今後追加"]
             end
+            Camera["/image_raw"]
+            VideoServer["web_video_server :8080"]
             Chassis["mecanum_chassis_node"]
             Controller["ros_robot_controller"]
             CameraNode["usb_cam"]
@@ -74,7 +75,7 @@ flowchart TB
     Bridge <-->|WebSocket| Rosbridge
     Battery -->|購読| Rosbridge
     Rosbridge -->|速度指令を送信| CmdVel
-    Camera -.->|画像購読：今後追加| Rosbridge
+    Robot <-->|静止画：HTTP・実機のみ| VideoServer
     CmdVel --> Chassis
     Chassis -->|モーター指令| Controller
     Controller --> Battery
@@ -82,15 +83,16 @@ flowchart TB
     Board --> Motors
     USB --> CameraNode
     CameraNode --> Camera
+    Camera --> VideoServer
 ```
 
-実機では各トピックを同じrosbridge接続で利用します。モックでは機体へ接続せず、指令をメモリに記録します。ただしモックのCLI・WebチャットもLLM APIには接続します。カメラは既存ROS側で配信されていますが、本アプリの画像取得ツールは未実装です。
+実機では速度指令とバッテリーを同じrosbridge接続で利用し、カメラの静止画は `web_video_server` からHTTPで取得します。モックでは機体へ接続せず、指令をメモリに記録します。ただしモックのCLI・WebチャットもLLM APIには接続します。物体検出の推論はROSA側のプロセスで実行します。
 
 ## ROSAへのツール登録
 
 ROSA 1.0.10の標準ツールはROS CLI・rclpyやシステム操作を前提とするため、`RosbridgeROSA._get_tools` をオーバーライドして本アプリのツールだけを登録します。この内部フックへの依存は、ROSA更新時にテストで確認します。`blacklist` はツール名の許可リストではありません。
 
-状態・バッテリーツールは両バックエンドで利用できます。モックでは移動・停止ツールも登録し、実機では `ENABLE_MOTION=true` の場合に登録します。現在の既定値は `true` で、読み取り専用には `false` を指定します。
+状態・バッテリーツールは両バックエンドで利用できます。モックでは移動・停止ツールも登録し、実機では `ENABLE_MOTION=true` の場合に登録します。現在の既定値は `true` で、読み取り専用には `false` を指定します。物体検出の `detect_objects` は両バックエンドで登録し、モックでは撮影せずに失敗を返します。
 
 ツール登録とWebの「利用可能なツール」は `tools/catalog.py` を共通の定義元とします。一覧はツールの説明と入力スキーマから生成し、日本語名・引数・必須／任意・既定値を表示します。ツール一覧の取得はLLMの生成やツール実行を伴わず、APIキーがなくても利用できます。
 
@@ -112,7 +114,9 @@ FastAPIをHTTPサーバー、Jinja2をHTMLテンプレート、htmxを部分更�
 | `web/static/app.css` / `app.js` | レイアウト、状態表示、履歴選択、スクロール、ダイアログ |
 | `execution/service.py` | 指示の実行、ツールの観測、取消、会話リセット |
 | `execution/store.py` | 指示ごとの `Run` データモデル |
-| `robot/camera/` | 画像取得インターフェース・フレーム情報・カメラモック |
+| `robot/camera/` | 画像取得インターフェース・フレーム情報・カメラモック・実機の静止画取得 |
+| `robot/perception/` | YOLOEによる物体検出・検出結果の型 |
+| `tools/vision.py` | 撮影と物体検出をつなぐROSA向けツール |
 
 起動は `ROBOT_BACKEND=mock uv run rosa-turbopi-web` です。既定では `127.0.0.1:8000` にバインドします。認証やブラウザごとのセッション分離は実装していません。
 
@@ -168,7 +172,7 @@ SSEはイベントキューを配信する方式ではなく、**0.5秒ごとに
 | `POST /stop` | 現在の指示を取消し、移動の停止を要求 |
 | `POST /conversation/reset` | 会話・実行履歴とROSAの会話メモリを破棄 |
 | `GET /tools` | 使用可能なツール一覧のHTML |
-| `GET /camera` | カメラ画像。実機側が未実装の場合は204 |
+| `GET /camera` | カメラ画像。モックは固定SVG、実機は `web_video_server` から取得した静止画 |
 
 ### 実行の中断と会話リセット
 
@@ -193,14 +197,28 @@ flowchart LR
 
 終了時は `ExecutionService.close()` で新規受付を止め、取消・移動停止を試みてtransportを閉じます。
 
-### カメラと認識機能の拡張
+### カメラと認識機能
 
 カメラはWeb専用ではなく、ロボット機能として `robot/camera/` に置きます。`CameraSource.capture()` はフレームID・撮影時刻・画像バイト列・メディアタイプを持つ `Frame` を返します。
 
 - `ROBOT_BACKEND=mock`：既存の動作モックと `MockCamera` を使います。画像は固定SVGで、`GET /camera` から返します。
-- `ROBOT_BACKEND=rosbridge`：現在はカメラソースを持たず、画面に「映像未接続」を表示します。
+- `ROBOT_BACKEND=rosbridge`：`HttpSnapshotCamera` が既存コンテナの `web_video_server`（`http://<ROSBRIDGE_HOST>:<CAMERA_PORT>/snapshot?topic=<CAMERA_TOPIC>`）から静止画を1枚取得します。取得できない場合は `CaptureError` を送出します。画面のカメラ欄は実機では「映像未接続」のままで、実カメラ画像の画面表示は未対応です。
 
-現在のカメラ表示は画像要素による取得で、動画配信や定期的な画像更新は未実装です。実カメラ取得、物体認識、検出枠の重ね描きも今後の対象です。認識処理は `robot/perception/`、ROSA向けツールは `tools/vision.py` に追加し、フレームIDと撮影時刻で認識結果・表示画像・実行履歴を対応付ける構成を想定しています。これらのディレクトリ・ツールはまだ作成していません。
+認識処理は `robot/perception/` に置き、撮影から独立させています。`YoloeDetector.detect(frame, target_classes)` は `Frame` の画像バイト列だけを入力とし、カメラには接続しません。そのため、保存した画像から作った `Frame` でも同じように推論できます。結果の `DetectionResult` は、入力と同じフレームID、画像の幅・高さ、検出一覧を持ちます。各検出は、ラベル・信頼度・元画像のピクセル座標のbbox・左右3分割の位置です。推論の失敗は `InferenceError` にまとめます。モデルと `ultralytics`・OpenCVは最初の検出時に読み込むため、`vision` 依存グループを入れていない環境でもアプリは起動します。
+
+ROSA向けツールは `tools/vision.py` の `detect_objects` で、撮影と推論を順に呼ぶだけの薄いツールです。戻り値は状態・フレームID・画像サイズ・検出一覧を含む辞書で、画像バイト列は含めません。撮影の失敗は `stage: capture`、推論の失敗は `stage: inference`、検出0件は `completed` と空の一覧で区別します。
+
+```mermaid
+flowchart LR
+    Agent["ROSA ＋ LLM"] -->|target_classes| Tool["detect_objects"]
+    Tool -->|capture| Camera["CameraSource"]
+    Camera -->|Frame| Tool
+    Tool -->|Frame・target_classes| Detector["YoloeDetector"]
+    Detector -->|DetectionResult| Tool
+    Tool -->|状態・フレームID・検出一覧| Agent
+```
+
+現在のカメラ表示は画像要素による取得で、動画配信や定期的な画像更新は未実装です。MJPEGを使った推論、撮影画像の保存、検出枠の重ね描き、検出結果に基づく自動移動も未実装です。今後は、フレームIDと撮影時刻で認識結果・表示画像・実行履歴を対応付ける構成を想定しています。
 
 ## 実行結果と停止の範囲
 

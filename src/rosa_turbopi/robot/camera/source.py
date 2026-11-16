@@ -15,3 +15,7 @@ class Frame:
 
 class CameraSource(Protocol):
     def capture(self) -> Frame: ...
+
+
+class CaptureError(Exception):
+    """Raised when a camera cannot provide a still image."""
