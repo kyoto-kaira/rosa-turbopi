@@ -2,6 +2,7 @@
 
 from rosa_turbopi.tools.motion import build_tools as build_motion_tools
 from rosa_turbopi.tools.status import build_tools as build_status_tools
+from rosa_turbopi.tools.vision import build_tools as build_vision_tools
 
 TITLES = {
     "get_connection_status": "接続・動作状態を確認する",
@@ -14,11 +15,16 @@ TITLES = {
     "rotate_left": "左へ回転する",
     "rotate_right": "右へ回転する",
     "stop": "移動を停止する",
+    "detect_objects": "カメラ画像で物体を検出する",
 }
 
 
 def tool_groups(robot):
-    return [("状態確認", build_status_tools(robot)), ("移動", build_motion_tools(robot))]
+    return [
+        ("状態確認", build_status_tools(robot)),
+        ("移動", build_motion_tools(robot)),
+        ("物体検出", build_vision_tools(robot)),
+    ]
 
 
 def build_tools(robot):

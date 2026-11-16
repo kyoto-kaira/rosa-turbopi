@@ -140,6 +140,66 @@ docker compose run --rm rosa chat
 
 チャット中は定周期の速度ログを表示せず、入力プロンプトを保ちます。指令ログの表示はモックの `move` コマンドで確認できます。
 
+## 物体検出（任意機能）
+
+`detect_objects` は、実機のカメラ画像を1枚撮影し、YOLOEで物体を探すツールです。検出だけを行い、機体は動かしません。`chat` で「青いボールはある？」のように聞くと、LLMが探す物体の英語名を付けて呼び出します。モックではカメラ画像を使わず、失敗を返します。
+
+### 準備
+
+検出用の依存関係（Ultralytics・PyTorchなど）は `vision` グループに分けています。使う場合だけ追加します。
+
+```sh
+uv sync --frozen --group vision
+```
+
+`uv sync --frozen` を再実行すると `vision` グループは外れるため、その場合はもう一度実行してください。追加していない環境でも他の機能は動作し、`detect_objects` はインストール方法を含む失敗を返します。現在のDockerイメージは `vision` グループを含まないため、コンテナでは物体検出を利用できません。
+
+モデルは既定で `weights/yoloe-26s-seg.pt` を使います。ファイルがない場合は、最初の検出時にUltralyticsが重みとテキストエンコーダーをダウンロードします（インターネット接続が必要です）。別の重みは `YOLOE_MODEL` で指定します。`weights/` と `*.pt` はGit管理対象外です。
+
+### 設定
+
+静止画は、既存コンテナの `web_video_server` からHTTPで取得します。接続先のホストは `ROSBRIDGE_HOST` と共通です。次の項目は必要な場合だけ `.env` に設定します。
+
+| 変数 | 既定値 | 内容 |
+|---|---|---|
+| `CAMERA_PORT` | `8080` | `web_video_server` のポート |
+| `CAMERA_TOPIC` | `/image_raw` | 静止画を取得するROSトピック |
+| `CAMERA_TIMEOUT_S` | `5` | 静止画取得の待ち時間（0より大きく60秒以下） |
+| `YOLOE_MODEL` | `weights/yoloe-26s-seg.pt` | YOLOEの重みファイル |
+
+### 静止画取得・MJPEG配信の確認
+
+`<ホスト>` はTurboPiのアドレスです。PowerShellでは `curl` を `curl.exe` に置き換えてください。
+
+```sh
+# 静止画を1枚取得する（本アプリが使う経路）
+curl -m 5 -o snap.jpg "http://<ホスト>:8080/snapshot?topic=/image_raw"
+
+# 既存のMJPEG配信を5秒間受信する
+curl -m 5 -s -o mjpeg.bin "http://<ホスト>:8080/stream?topic=/image_raw&type=mjpeg"
+```
+
+`snap.jpg` が画像として開け、`mjpeg.bin` のサイズが0より大きければ利用できます。MJPEG配信は終了しないため、5秒で打ち切られるのは正常です。本アプリは静止画だけを使い、MJPEGを使った推論は行いません。
+
+### LLM経由の検出
+
+検出だけを試す場合は `ENABLE_MOTION=false` を推奨します。
+
+```dotenv
+ROBOT_BACKEND=rosbridge
+ENABLE_MOTION=false
+```
+
+```sh
+uv run rosa-turbopi chat
+```
+
+入力例:「青いボールはある？」「何が見える？」。探す物体を指定しない場合は、一般的な物体と色付きのボールを探します。
+
+結果の `state` は `completed`（検出処理完了）か `failed`（失敗）です。`completed` は、フレームID・画像サイズ・検出一覧（ラベル・信頼度・元画像のピクセル座標・左右3分割の位置）を含みます。見つからなかった場合は、`completed` と空の検出一覧を返します。`failed` は、`stage` が `capture`（撮影の失敗）か `inference`（検出の失敗）です。
+
+検出は1枚の画像による結果で、距離は分かりません。写っていても検出されない場合や、色などを誤る場合があります。検出結果に基づく自動移動は行いません。
+
 ## 開発・検証
 
 ```sh
@@ -175,7 +235,9 @@ rosa-turbopi/
 │   │   └── motion.py              # 前後左右・回転・停止ツール
 │   ├── robot/
 │   │   ├── client.py              # ロボット操作の窓口
-│   │   └── motion.py              # 速度・時間制限・定周期実行・取消
+│   │   ├── motion.py              # 速度・時間制限・定周期実行・取消
+│   │   ├── camera/                # 静止画の取得（実機はHTTP、モックは固定画像）
+│   │   └── perception/            # YOLOEによる物体検出・検出結果の型
 │   └── transport/
 │       ├── rosbridge.py           # 実機へのWebSocket通信
 │       └── mock.py                # ネットワークを使わない通信モック
@@ -205,7 +267,7 @@ ROBOT_BACKEND=mock uv run rosa-turbopi-web
 `rosbridge` は既存の実機接続を使用し、カメラ取得の実装までは「映像未接続」と表示します。
 モックでもチャットには外部LLMの `OPENAI_API_KEY` と `LLM_MODEL` が必要です。
 キーがなくても画面・カメラは表示でき、指示送信時には設定エラーを表示します。
-物体認識は今後 `robot/perception/` と `tools/vision.py` に追加する想定です。
+ツール一覧には物体検出の `detect_objects` も表示します（[物体検出](#物体検出任意機能)）。検出枠の画面表示は未対応です。
 
 停止ボタンはLLMを介さず、同じロボット接続で移動を取り消してゼロ速度を送信します。
 同じ指示からの後続ツール実行も抑止します。LLM APIへの進行中の通信自体は完了を待つため、
