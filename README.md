@@ -274,7 +274,8 @@ Web用コードは `web/`、HTMLに依存しない実行管理は `execution/`�
 
 既存Web UIの外側に、PCのマイクによる音声入力を追加できます。
 録音をOpenAIで文字起こしし、入力欄で確認・修正してから送信します。
-`OPENAI_API_KEY` は会話と共用し、音声用モデルは `VOICE_TRANSCRIBE_MODEL` で指定できます。
+会話用は `OPENAI_API_KEY`、音声文字起こし用は `VOICE_OPENAI_API_KEY` にそれぞれ設定します。
+音声用キーが未設定の場合、会話用キーは使用しません。音声用モデルは `VOICE_TRANSCRIBE_MODEL` で指定できます。
 
 ```sh
 docker compose run --rm --entrypoint rosa-turbopi-voice-web rosa

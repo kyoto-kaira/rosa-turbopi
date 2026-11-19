@@ -128,9 +128,10 @@ def test_streamed_upload_is_bounded_and_concurrent_requests_rejected():
     asyncio.run(run())
 
 
-def test_provider_uses_shared_key_and_fixed_endpoint(monkeypatch):
+def test_provider_uses_voice_key_and_fixed_endpoint(monkeypatch):
     monkeypatch.setenv("OPENAI_BASE_URL", "https://other-provider.invalid")
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "llm-only-key")
+    monkeypatch.setenv("VOICE_OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("VOICE_TRANSCRIBE_MODEL", "test-model")
 
     def handle(request):
@@ -176,5 +177,24 @@ def test_provider_timeout_and_missing_key():
     with pytest.raises(TranscriptionError, match="タイムアウト"):
         asyncio.run(provider.transcribe(b"audio", "audio/webm", "webm"))
     provider = provider_with_transport(VoiceSettings(""), httpx.MockTransport(timeout))
-    with pytest.raises(TranscriptionError, match="OPENAI_API_KEY"):
+    with pytest.raises(TranscriptionError, match="VOICE_OPENAI_API_KEY"):
+        asyncio.run(provider.transcribe(b"audio", "audio/webm", "webm"))
+
+
+@pytest.mark.parametrize("voice_key", [None, "", "   "])
+def test_voice_key_does_not_fall_back_to_llm_key(monkeypatch, voice_key):
+    monkeypatch.setattr("rosa_turbopi_voice.settings.load_dotenv", lambda: None)
+    monkeypatch.setenv("OPENAI_API_KEY", "llm-only-key")
+    if voice_key is None:
+        monkeypatch.delenv("VOICE_OPENAI_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("VOICE_OPENAI_API_KEY", voice_key)
+
+    def unexpected_request(request):
+        pytest.fail("Missing voice key must not make an API request")
+
+    provider = provider_with_transport(
+        VoiceSettings.load(), httpx.MockTransport(unexpected_request)
+    )
+    with pytest.raises(TranscriptionError, match="VOICE_OPENAI_API_KEY"):
         asyncio.run(provider.transcribe(b"audio", "audio/webm", "webm"))

@@ -137,10 +137,10 @@ OpenAIとの通信・レスポンスの検証・利用者向けのエラー変�
 
 | 環境変数 | 用途 |
 |---|---|
-| `OPENAI_API_KEY` | 既存のキーを文字起こしでも共用 |
+| `VOICE_OPENAI_API_KEY` | 音声文字起こし専用のキー。未設定時に会話用キーは使用しない |
 | `VOICE_TRANSCRIBE_MODEL` | 音声用モデル。既定値は `gpt-transcribe` |
 
-音声拡張は `LLM_MODEL` と `OPENAI_BASE_URL` を使用せず、
+音声拡張は会話用の `OPENAI_API_KEY`、`LLM_MODEL`、`OPENAI_BASE_URL` を使用せず、
 `https://api.openai.com/v1/audio/transcriptions` に接続します。
 
 文字起こしには、既存のLLM関連ライブラリも利用するOpenAI公式Python SDKを使います。

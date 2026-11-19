@@ -18,6 +18,6 @@ class VoiceSettings:
     def load(cls):
         load_dotenv()
         return cls(
-            api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+            api_key=os.getenv("VOICE_OPENAI_API_KEY", "").strip(),
             model=os.getenv("VOICE_TRANSCRIBE_MODEL", "gpt-transcribe").strip(),
         )
