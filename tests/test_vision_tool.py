@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from rosa_turbopi.robot.camera.source import CaptureError, Frame
 from rosa_turbopi.robot.perception.errors import InferenceError
+from rosa_turbopi.robot.perception.frames import DetectionFrames
 from rosa_turbopi.robot.perception.models import Detection, DetectionResult
 from rosa_turbopi.tools.vision import build_tools, shared_detector
 
@@ -41,7 +42,11 @@ class FakeDetector:
 
 
 def make_tool(camera=None, detector=None, simulated=False):
-    robot = SimpleNamespace(motion=SimpleNamespace(simulated=simulated), camera=camera)
+    robot = SimpleNamespace(
+        motion=SimpleNamespace(simulated=simulated),
+        camera=camera,
+        detection_frames=DetectionFrames(),
+    )
     (tool,) = build_tools(robot, detector)
     return tool
 
@@ -145,3 +150,15 @@ def test_building_tools_does_not_need_the_vision_dependencies():
     (tool,) = build_tools(robot)
     assert tool.name == "detect_objects"
     assert "前回" in tool.description  # states that nothing is carried over between calls
+
+
+def test_success_retains_exact_frame_without_adding_image_bytes_to_tool_result():
+    frames = DetectionFrames()
+    robot = SimpleNamespace(
+        motion=SimpleNamespace(simulated=False), camera=FakeCamera(), detection_frames=frames
+    )
+    (tool,) = build_tools(robot, FakeDetector())
+    result = tool.invoke({})
+    assert frames.get(result["frame_id"]).frame is FRAME
+    assert frames.get(result["frame_id"]).result.frame_id == FRAME.id
+    assert "secret-image-bytes" not in json.dumps(result)

@@ -1,4 +1,5 @@
 let selectedRun = null;
+let latestRun = document.querySelector('.timeline-history')?.dataset.latestRunId || null;
 const scrollPositions = new Map();
 function panelKey(panel) {
   return panel.id === 'chat-history' ? 'chat' : `timeline:${panel.dataset.executionId}`;
@@ -7,7 +8,8 @@ function contentSnapshot() {
   return {
     chat: JSON.stringify([...document.querySelectorAll('#chat-history .message')].map(message =>
       [message.dataset.messageId, ...[...message.querySelectorAll('.message-body')].map(body => body.textContent)])),
-    timeline: [...document.querySelectorAll('.timeline .tool')].map(tool => tool.textContent).join('\n'),
+    timeline: JSON.stringify([...document.querySelectorAll('.timeline .tool')].map(tool =>
+      [tool.dataset.callId, tool.className, ...[...tool.querySelectorAll('pre')].map(pre => pre.textContent)])),
     run: document.querySelector('.timeline .scroll')?.dataset.executionId,
   };
 }
@@ -32,21 +34,42 @@ document.addEventListener('click', event => {
   if (button) selectedRun = button.dataset.runId;
 });
 document.addEventListener('htmx:sseBeforeMessage', event => {
-  if (selectedRun) {
-    const doc = new DOMParser().parseFromString(event.detail.data, 'text/html');
-    if (!doc.querySelector('[data-run-id]')) {
+  const doc = new DOMParser().parseFromString(event.detail.data, 'text/html');
+  const incomingLatest = doc.querySelector('.timeline-history')?.dataset.latestRunId || null;
+  // A newly started run always takes priority over browsing older executions.
+  if (incomingLatest !== latestRun) {
+    latestRun = incomingLatest;
+    selectedRun = null;
+    return;
+  }
+  if (selectedRun && selectedRun !== incomingLatest) {
+    event.preventDefault();
+    htmx.ajax('GET', '/runs/' + encodeURIComponent(selectedRun), {target: '#workspace', swap: 'innerHTML'});
+  }
+});
+// Ignore late history responses after a newer selection or an automatic jump.
+document.addEventListener('htmx:beforeSwap', event => {
+  const responseUrl = event.detail.xhr?.responseURL || '';
+  if (!new URL(responseUrl || '/', location.href).pathname.startsWith('/runs/')) return;
+  const doc = new DOMParser().parseFromString(event.detail.xhr.responseText, 'text/html');
+  const incomingLatest = doc.querySelector('.timeline-history')?.dataset.latestRunId || null;
+  const incomingRun = doc.querySelector('.timeline .scroll')?.dataset.executionId;
+  if (incomingLatest !== latestRun) {
+    event.detail.shouldSwap = false;
+    const containsKnownLatest = [...doc.querySelectorAll('#chat-history .message')]
+      .some(message => message.dataset.messageId === latestRun);
+    if (!latestRun || containsKnownLatest) {
+      latestRun = incomingLatest;
       selectedRun = null;
-      return;
+      if (incomingLatest) htmx.ajax('GET', '/runs/' + encodeURIComponent(incomingLatest), {target: '#workspace', swap: 'innerHTML'});
     }
-    // A selected historical run stays visible; explicit actions still refresh it.
-    if (selectedRun !== doc.querySelector('.history-link.selected')?.dataset.runId) {
-      event.preventDefault();
-      htmx.ajax('GET', '/runs/' + selectedRun, {target: '#workspace', swap: 'innerHTML'});
-    }
+  } else if (incomingRun !== (selectedRun || latestRun)) {
+    event.detail.shouldSwap = false;
   }
 });
 document.addEventListener('conversationReset', () => {
   selectedRun = null;
+  latestRun = null;
   document.getElementById('query').value = '';
 });
 document.addEventListener('htmx:afterSwap', event => {
@@ -54,6 +77,11 @@ document.addEventListener('htmx:afterSwap', event => {
     const dialog = document.getElementById('tools-dialog');
     if (!dialog.open) dialog.showModal();
     return;
+  }
+  const currentLatest = document.querySelector('.timeline-history')?.dataset.latestRunId || null;
+  if (currentLatest !== latestRun) {
+    latestRun = currentLatest;
+    selectedRun = null;
   }
   const state = document.getElementById('execution-state');
   const busy = state?.dataset.busy === 'true';

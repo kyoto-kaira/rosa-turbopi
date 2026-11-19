@@ -201,8 +201,8 @@ flowchart LR
 
 カメラはWeb専用ではなく、ロボット機能として `robot/camera/` に置きます。`CameraSource.capture()` はフレームID・撮影時刻・画像バイト列・メディアタイプを持つ `Frame` を返します。
 
-- `ROBOT_BACKEND=mock`：既存の動作モックと `MockCamera` を使います。画像は固定SVGで、`GET /camera` から返します。
-- `ROBOT_BACKEND=rosbridge`：`HttpSnapshotCamera` が既存コンテナの `web_video_server`（`http://<ROSBRIDGE_HOST>:<CAMERA_PORT>/snapshot?topic=<CAMERA_TOPIC>`）から静止画を1枚取得します。取得できない場合は `CaptureError` を送出します。画面のカメラ欄は実機では「映像未接続」のままで、実カメラ画像の画面表示は未対応です。
+- `ROBOT_BACKEND=mock`：既存の動作モックと `MockCamera` を使います。画像は固定SVGで、`GET /camera` から返します。UIではサンプル画像を表示せず「実機未接続」と表示し、映像取得を行いません。
+- `ROBOT_BACKEND=rosbridge`：`HttpSnapshotCamera` が既存コンテナの `web_video_server`（`http://<ROSBRIDGE_HOST>:<CAMERA_PORT>/snapshot?topic=<CAMERA_TOPIC>`）から静止画を1枚取得します。取得できない場合は `CaptureError` を送出します。UIの映像は別経路の `GET /camera/stream` から取得します。FastAPIの非同期HTTPクライアントが既存の `/stream?topic=<CAMERA_TOPIC>&type=mjpeg` に接続し、multipartのContent-Typeとバイト列をそのまま中継します。上流の接続・読み取りには `CAMERA_TIMEOUT_S` を適用し、上流の失敗やブラウザ切断時には接続を閉じます。モックでのストリーム要求は204を返します。
 
 認識処理は `robot/perception/` に置き、撮影から独立させています。`YoloeDetector.detect(frame, target_classes)` は `Frame` の画像バイト列だけを入力とし、カメラには接続しません。そのため、保存した画像から作った `Frame` でも同じように推論できます。結果の `DetectionResult` は、入力と同じフレームID、画像の幅・高さ、検出一覧を持ちます。各検出は、ラベル・信頼度・元画像のピクセル座標のbbox・左右3分割の位置です。推論の失敗は `InferenceError` にまとめます。検出用の依存関係は標準でインストールします。モデルと `ultralytics`・OpenCVは最初の検出時に読み込むため、他の操作の起動時にはモデルを読み込みません。
 
@@ -218,7 +218,7 @@ flowchart LR
     Tool -->|状態・フレームID・検出一覧| Agent
 ```
 
-現在のカメラ表示は画像要素による取得で、動画配信や定期的な画像更新は未実装です。MJPEGを使った推論、撮影画像の保存、検出枠の重ね描き、検出結果に基づく自動移動も未実装です。今後は、フレームIDと撮影時刻で認識結果・表示画像・実行履歴を対応付ける構成を想定しています。
+ブラウザの `camera.js` がMJPEGを逐次読み込み、JPEGフレームを画像要素へ表示します。接続状態を表示し、取得失敗・ストリーム終了時は3秒後に再接続します。タブ非表示時には取得を中断します。カメラ欄はSSEで更新するworkspaceの外側に置き、チャット更新で映像が再接続されない構成です。物体検出が成功すると、`DetectionFrames` が推論に使った `Frame` と `DetectionResult` をフレームIDで保持します。最大20件・合計64MBを超えた画像は古いものから破棄し、会話リセット時も消去します。画像バイト列はLLM向けツール結果や実行履歴へ含めません。`/detections/{frame_id}` はSVGで元画像・bbox・ラベル・信頼度を描画し、`/detections/{frame_id}/image` は元画像を返します。タイムラインのサムネイルはこの表示ページをiframeで利用します。引数・結果の詳細には画像を重複表示しません。カメラ欄はライブ映像専用です。`detections.js` は新しい結果が届いてもカメラ表示を切り替えません。検出画像はタイムライン内で表示し、画像の拡大操作は設けません。MJPEGの常時推論、画像のディスク保存、検出結果に基づく自動移動は未実装です。
 
 ## 実行結果と停止の範囲
 

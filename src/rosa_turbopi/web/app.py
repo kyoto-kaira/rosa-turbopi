@@ -3,11 +3,14 @@
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 
+import httpx
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 
 from rosa_turbopi.execution.service import ExecutionService
 from rosa_turbopi.robot.camera.source import CaptureError
@@ -16,6 +19,7 @@ from rosa_turbopi.settings import Settings
 from rosa_turbopi.tools.catalog import describe_tools
 from rosa_turbopi.transport.mock import MockTransport
 from rosa_turbopi.transport.rosbridge import RosbridgeClient
+from rosa_turbopi.web.summaries import tool_summary
 
 ROOT = Path(__file__).parent
 
@@ -35,6 +39,9 @@ def create_app(settings=None, agent_factory=None):
         service = ExecutionService(robot, agent_factory)
         app.state.service = service
         app.state.robot = robot
+        app.state.camera_http = httpx.AsyncClient(
+            timeout=httpx.Timeout(config.camera_timeout_s), trust_env=False
+        )
         app.state.notice = ""
         app.state.notice_error = False
         try:
@@ -45,20 +52,26 @@ def create_app(settings=None, agent_factory=None):
                 await asyncio.to_thread(service.close)
             finally:
                 transport.close()
+                await app.state.camera_http.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
     templates = Jinja2Templates(directory=ROOT / "templates")
+    templates.env.globals["tool_summary"] = tool_summary
 
     def render(request, selected=None, template="partials/workspace.html"):
         runs = request.app.state.service.snapshot()
         chosen = next((run for run in runs if run.id == selected), runs[-1] if runs else None)
+        index = next((i for i, run in enumerate(runs) if run is chosen), -1)
         return templates.TemplateResponse(
             request=request,
             name=template,
             context={
                 "runs": runs,
                 "selected": chosen,
+                "previous_run": runs[index - 1] if index > 0 else None,
+                "next_run": runs[index + 1] if 0 <= index < len(runs) - 1 else None,
+                "latest_run": runs[-1] if runs else None,
                 "busy": any(r.state == "running" for r in runs),
                 "status": request.app.state.robot.status(),
                 "notice": request.app.state.notice,
@@ -155,6 +168,71 @@ def create_app(settings=None, agent_factory=None):
                 "X-Frame-ID": frame.id,
                 "X-Captured-At": frame.captured_at.isoformat(),
             },
+        )
+
+    @app.get("/detections/{frame_id}", response_class=HTMLResponse)
+    def detection_view(request: Request, frame_id: str, thumbnail: bool = False):
+        record = request.app.state.robot.detection_frames.get(frame_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="detection.html",
+            context={"record": record, "thumbnail": thumbnail},
+            status_code=200 if record else 404,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/detections/{frame_id}/image")
+    def detection_image(request: Request, frame_id: str):
+        record = request.app.state.robot.detection_frames.get(frame_id)
+        if record is None:
+            return Response(status_code=404)
+        return Response(
+            record.frame.data,
+            media_type=record.frame.media_type,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/camera/stream")
+    async def camera_stream(request: Request):
+        config = request.app.state.robot.settings
+        if config.backend != "rosbridge":
+            return Response(status_code=204)
+        query = urlencode({"topic": config.camera_topic, "type": "mjpeg"}, safe="/")
+        url = f"http://{config.host}:{config.camera_port}/stream?{query}"
+        client = request.app.state.camera_http
+        upstream = None
+        try:
+            upstream = await client.send(client.build_request("GET", url), stream=True)
+            upstream.raise_for_status()
+            content_type = upstream.headers.get("content-type", "")
+            if (
+                content_type.split(";", 1)[0].strip().lower() != "multipart/x-mixed-replace"
+                or "boundary=" not in content_type.lower()
+            ):
+                raise ValueError("Camera endpoint did not return an MJPEG stream")
+        except (httpx.HTTPError, ValueError):
+            if upstream is not None:
+                await upstream.aclose()
+            return Response("Camera stream unavailable", status_code=503)
+
+        async def frames():
+            try:
+                async for chunk in upstream.aiter_raw():
+                    yield chunk
+            except httpx.HTTPError:
+                # Ending the response lets the browser reconnect after an upstream failure.
+                return
+            finally:
+                await upstream.aclose()
+
+        return StreamingResponse(
+            frames(),
+            headers={
+                "Content-Type": content_type,
+                "Cache-Control": "no-store",
+                "X-Accel-Buffering": "no",
+            },
+            background=BackgroundTask(upstream.aclose),
         )
 
     @app.get("/events")

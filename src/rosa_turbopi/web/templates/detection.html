@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>物体検出結果</title><link rel="stylesheet" href="/static/tokens.css"><link rel="stylesheet" href="/static/detection.css?v=20261119-1"></head>
+<body{% if thumbnail %} class="thumbnail"{% endif %}>{% if record %}{% set result = record.result %}
+{% set label_font_size = [result.width * 12 / 280, 12] | max %}
+{% set label_padding = label_font_size * 0.4 %}
+{% set label_height = label_font_size * 1.6 %}
+<figure><svg style="--label-font-size: {{ label_font_size }}px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {{ result.width }} {{ result.height }}" role="img" aria-label="物体検出結果：{{ result.detections | length }}件">
+<image href="/detections/{{ record.frame.id }}/image" width="{{ result.width }}" height="{{ result.height }}"/>
+{% set bbox_colors = ['#0072b2', '#d55e00', '#009e73', '#aa4499', '#b58900', '#6633cc', '#008899', '#cc3366'] %}
+{% for item in result.detections %}{% set x1, y1, x2, y2 = item.bbox %}
+<g style="--bbox-color: {{ bbox_colors[loop.index0 % (bbox_colors | length)] }}"><title>{{ item.label }} {{ (item.confidence * 100) | round | int }}%</title>
+<rect class="bbox" x="{{ x1 }}" y="{{ y1 }}" width="{{ x2 - x1 }}" height="{{ y2 - y1 }}"/>
+{% set label_width = [((item.label | length) + 6) * label_font_size * 0.65 + label_padding * 2, result.width] | min %}
+{% set label_x = [x1, result.width - label_width] | min %}
+{% set label_y = [y1 - label_height - label_padding * 0.25, 0] | max %}
+<g class="annotation"><rect class="bbox-label" x="{{ label_x }}" y="{{ label_y }}" width="{{ label_width }}" height="{{ label_height }}" rx="4"/>
+<text x="{{ label_x + label_padding }}" y="{{ label_y + label_font_size * 1.15 }}">{{ item.label }} {{ (item.confidence * 100) | round | int }}%</text></g></g>
+{% endfor %}</svg>
+<ul class="label-overflow" hidden aria-label="画像内に収まらない検出ラベル"></ul>
+<figcaption>{{ '検出なし' if not result.detections else '検出 ' ~ result.detections | length ~ '件' }} · <time datetime="{{ record.frame.captured_at.isoformat() }}">{{ record.frame.captured_at.isoformat() }}</time></figcaption></figure>
+{% else %}<p class="unavailable">検出画像は保持期間を過ぎたか、会話がリセットされたため表示できません。</p>{% endif %}
+<script src="/static/label-layout.js?v=20261119-1" defer></script>
+<script src="/static/detection-time.js" defer></script>
+</body></html>

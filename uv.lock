@@ -2116,6 +2116,7 @@ source = { editable = "." }
 dependencies = [
     { name = "clip" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "jinja2" },
     { name = "jpl-rosa" },
     { name = "openai" },
@@ -2138,6 +2139,7 @@ dev = [
 requires-dist = [
     { name = "clip", git = "https://github.com/ultralytics/CLIP.git" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jinja2", specifier = ">=3.1,<4" },
     { name = "jpl-rosa", specifier = "==1.0.10" },
     { name = "openai", specifier = ">=2,<3" },
