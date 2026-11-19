@@ -65,7 +65,9 @@ def build_tools(robot: TurboPiClient, detector: YoloeDetector | None = None) -> 
         horizontal（left / center / right、画像を左右に3分割した位置）。
         failedなら stage が capture（撮影の失敗）か inference（検出の失敗）で、errorに理由が入る。
         距離は分からない。1枚の画像による結果で、見えなかっただけの可能性もある。
-        見つけた物体へ近づく場合は、検出結果を報告し、移動の方向と時間を確認してから移動する。"""
+        位置は画像内の左右であり、世界座標や距離、通路の安全性ではない。
+        対象へ向く・少し近づく依頼では、方向から短い回転や移動の時間を選んでよい。
+        移動後の見え方が必要なら再撮影する。距離不明のまま到着したと報告しない。"""
         if robot.motion.simulated:
             return failed("capture", "モックではカメラ画像を使えません", simulated=True)
         try:

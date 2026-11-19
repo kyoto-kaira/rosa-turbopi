@@ -24,7 +24,8 @@ def build_tools(robot: TurboPiClient) -> list:
 
         vxは前進、vyは左横移動（m/s）、wzは左回転（rad/s）。負値は逆方向。
         並進合成速度は0または0.4〜0.9、角速度の絶対値は最大7.0。
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。距離・角度指定は非対応。
+        duration_sは0より大きく最大3秒。
+        距離÷並進合成速度、角度（rad）÷角速度で時間を概算できる。位置・角度の実測はしない。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
         failed（失敗）、rejected（拒否）を返す。実測の移動・停止を保証しない。"""
         return execute_move(vx, vy, wz, duration_s)
@@ -44,60 +45,60 @@ def build_tools(robot: TurboPiClient) -> list:
     def move_forward(duration_s: float, speed: float = 0.5) -> dict:
         """前進する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         speedは正のm/sで0.4〜0.9、既定0.5。ゆっくり=0.4、標準=0.5、速く=0.9。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。距離指定は非対応。実測の移動・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。距離指定は距離（m）÷speedで秒数を概算して渡す。実測の移動・停止を保証しない。"""
         return directional(speed, duration_s, "vx", 1)
 
     @tool
     def move_backward(duration_s: float, speed: float = 0.5) -> dict:
         """後退する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         speedは正のm/sで0.4〜0.9、既定0.5。ゆっくり=0.4、標準=0.5、速く=0.9。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。距離指定は非対応。実測の移動・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。距離指定は距離（m）÷speedで秒数を概算して渡す。実測の移動・停止を保証しない。"""
         return directional(speed, duration_s, "vx", -1)
 
     @tool
     def move_left(duration_s: float, speed: float = 0.5) -> dict:
         """向きを変えず左へ横移動する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         speedは正のm/sで0.4〜0.9、既定0.5。ゆっくり=0.4、標準=0.5、速く=0.9。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。距離指定は非対応。実測の移動・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。距離指定は距離（m）÷speedで秒数を概算して渡す。実測の移動・停止を保証しない。"""
         return directional(speed, duration_s, "vy", 1)
 
     @tool
     def move_right(duration_s: float, speed: float = 0.5) -> dict:
         """向きを変えず右へ横移動する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         speedは正のm/sで0.4〜0.9、既定0.5。ゆっくり=0.4、標準=0.5、速く=0.9。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。距離指定は非対応。実測の移動・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。距離指定は距離（m）÷speedで秒数を概算して渡す。実測の移動・停止を保証しない。"""
         return directional(speed, duration_s, "vy", -1)
 
     @tool
     def rotate_left(duration_s: float, angular_speed: float = 5.0) -> dict:
         """その場で左（反時計回り）へ回転する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         angular_speedは正のrad/sで最大7.0、既定5.0。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。角度指定は非対応。実測の回転・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。角度指定は角度（rad）÷angular_speedで秒数を概算して渡す。実測の回転・停止を保証しない。"""
         return directional(angular_speed, duration_s, "wz", 1)
 
     @tool
     def rotate_right(duration_s: float, angular_speed: float = 5.0) -> dict:
         """その場で右（時計回り）へ回転する。
 
-        duration_sは必須で0より大きく最大3秒。不明なら確認する。
+        duration_sは0より大きく最大3秒。
         angular_speedは正のrad/sで最大7.0、既定5.0。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
-        failed（失敗）、rejected（拒否）を返す。角度指定は非対応。実測の回転・停止を保証しない。"""
+        failed（失敗）、rejected（拒否）を返す。角度指定は角度（rad）÷angular_speedで秒数を概算して渡す。実測の回転・停止を保証しない。"""
         return directional(angular_speed, duration_s, "wz", -1)
 
     @tool
