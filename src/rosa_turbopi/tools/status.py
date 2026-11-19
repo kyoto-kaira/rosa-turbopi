@@ -10,7 +10,8 @@ def build_tools(robot: TurboPiClient) -> list:
     def get_connection_status() -> dict:
         """接続状態・backend・movement_enabled・移動状態を確認する。
 
-        操作前に一度確認する。完了した操作の確認を繰り返さない。
+        接続状態を尋ねられたときや、操作可能か判断が必要なときに使う。
+        各移動の前後に必ず呼ぶ必要はない。完了した操作の確認を繰り返さない。
         移動状態は指令処理の状態であり、センサーの実測ではない。"""
         return robot.status()
 

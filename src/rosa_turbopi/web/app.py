@@ -17,8 +17,7 @@ from rosa_turbopi.robot.camera.source import CaptureError
 from rosa_turbopi.robot.client import TurboPiClient
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.tools.catalog import describe_tools
-from rosa_turbopi.transport.mock import MockTransport
-from rosa_turbopi.transport.rosbridge import RosbridgeClient
+from rosa_turbopi.transport import create_transport
 from rosa_turbopi.web.summaries import tool_summary
 
 ROOT = Path(__file__).parent
@@ -28,13 +27,7 @@ def create_app(settings=None, agent_factory=None):
     @asynccontextmanager
     async def lifespan(app):
         config = settings or Settings.load()
-        transport = (
-            MockTransport(echo=False)
-            if config.backend == "mock"
-            else RosbridgeClient(
-                config.host, config.port, config.secure, enable_motion=config.enable_motion
-            )
-        )
+        transport = create_transport(config, echo=False)
         robot = TurboPiClient(transport, config)
         service = ExecutionService(robot, agent_factory)
         app.state.service = service

@@ -11,7 +11,7 @@ def test_real_move_is_rejected_before_constructing_transport(monkeypatch, capsys
     def forbidden(*args):
         pytest.fail("Real transport must not be created")
 
-    monkeypatch.setattr("rosa_turbopi.cli.RosbridgeClient", forbidden)
+    monkeypatch.setattr("rosa_turbopi.cli.create_transport", forbidden)
     with pytest.raises(SystemExit) as exc:
         main()
     assert exc.value.code == 1
@@ -25,7 +25,7 @@ def test_mock_move_runs_without_real_transport(monkeypatch, capsys):
     def forbidden(*args):
         pytest.fail("Mock mode must not create a real transport")
 
-    monkeypatch.setattr("rosa_turbopi.cli.RosbridgeClient", forbidden)
+    monkeypatch.setattr("rosa_turbopi.transport.RosbridgeClient", forbidden)
     main()
     assert '"state": "completed"' in capsys.readouterr().out
 

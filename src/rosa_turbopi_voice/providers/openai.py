@@ -14,7 +14,7 @@ class OpenAITranscriber:
     async def transcribe(self, audio: bytes, media_type: str, extension: str) -> str:
         if not self.settings.api_key or not self.settings.model:
             raise TranscriptionError(
-                "OPENAI_API_KEY と VOICE_TRANSCRIBE_MODEL の設定を確認してください。"
+                "VOICE_OPENAI_API_KEY と VOICE_TRANSCRIBE_MODEL の設定を確認してください。"
             )
         try:
             async with self.client_factory(
