@@ -1,4 +1,4 @@
-"""Vision tool: take one still image and look for objects (optional: uv sync --group vision)."""
+"""Vision tool: take one still image and look for objects."""
 
 import os
 from functools import lru_cache
@@ -76,6 +76,7 @@ def build_tools(robot: TurboPiClient, detector: YoloeDetector | None = None) -> 
             result = get_detector().detect(frame, target_classes)
         except InferenceError as exc:
             return failed("inference", str(exc), frame_id=frame.id)
+        robot.detection_frames.add(frame, result)
         return completed(result)
 
     return [detect_objects]

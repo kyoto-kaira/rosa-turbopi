@@ -228,3 +228,231 @@ def test_tool_catalog_matches_agent_registry_without_llm(monkeypatch):
             "get_battery",
             "detect_objects",
         }
+
+
+def test_mock_hides_camera_and_does_not_open_stream():
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        html = client.get("/").text
+        assert "実機未接続" in html
+        assert 'id="camera-stream"' not in html
+        assert "<img" not in html
+        assert client.get("/camera/stream").status_code == 204
+
+
+def test_real_camera_stream_is_proxied_and_closed():
+    from dataclasses import replace
+
+    import httpx
+
+    closed = []
+    payload = b"--frame\r\nContent-Type: image/jpeg\r\n\r\njpeg\r\n--frame--\r\n"
+
+    class Stream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield payload
+
+        async def aclose(self):
+            closed.append(True)
+
+    def upstream(request):
+        assert request.url.host == "localhost"
+        assert request.url.port == 8080
+        assert request.url.path == "/stream"
+        # web_video_server does not decode %2F in the ROS topic query.
+        assert b"topic=/image_raw" in request.url.query
+        assert request.url.params["topic"] == "/image_raw"
+        assert request.url.params["type"] == "mjpeg"
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "multipart/x-mixed-replace; boundary=frame"},
+            stream=Stream(),
+        )
+
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        client.app.state.robot.settings = replace(settings(), backend="rosbridge")
+        client.app.state.robot.status = lambda: {"backend": "rosbridge", "connected": True}
+        html = client.get("/").text
+        assert 'id="camera-stream"' in html
+        assert '<section class="camera panel"><h2>01 / CAMERA</h2>' in html
+        assert "camera-live-view" not in html
+        assert "camera-live-tab" not in html
+        assert "camera-detection-frame" not in html
+        original = client.app.state.camera_http
+        client.app.state.camera_http = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+        try:
+            response = client.get("/camera/stream")
+            assert response.status_code == 200
+            assert response.content == payload
+            assert response.headers["content-type"] == "multipart/x-mixed-replace; boundary=frame"
+            assert response.headers["cache-control"] == "no-store"
+            assert closed
+        finally:
+            client.portal.call(client.app.state.camera_http.aclose)
+            client.app.state.camera_http = original
+
+
+def test_camera_stream_rejects_invalid_upstream_and_connection_errors():
+    from dataclasses import replace
+
+    import httpx
+
+    def unavailable(request):
+        raise httpx.ConnectError("offline", request=request)
+
+    handlers = [
+        lambda request: httpx.Response(200, text="not a stream"),
+        lambda request: httpx.Response(502),
+        unavailable,
+    ]
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        client.app.state.robot.settings = replace(settings(), backend="rosbridge")
+        original = client.app.state.camera_http
+        for handler in handlers:
+            client.app.state.camera_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            try:
+                assert client.get("/camera/stream").status_code == 503
+            finally:
+                client.portal.call(client.app.state.camera_http.aclose)
+        client.app.state.camera_http = original
+
+
+def test_only_running_tool_exposes_timestamp_for_browser_timer():
+    from rosa_turbopi.execution.store import Run
+
+    call = {
+        "id": "call-1",
+        "name": "detect_objects",
+        "state": "running",
+        "arguments": {},
+        "result": "",
+        "elapsed": 0,
+        "started_at": "2026-11-16T00:00:00+00:00",
+    }
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        service = client.app.state.service
+        service.runs.append(Run(query="何が見える？", calls=[call]))
+        html = client.get("/").text
+        assert 'data-started-at="2026-11-16T00:00:00+00:00"' in html
+        call.update(state="completed", elapsed=12.34)
+        html = client.get("/").text
+        assert "data-started-at=" not in html
+        assert "12.34s</span>" in html
+
+
+def test_detection_view_and_details_share_original_image_and_boxes():
+    from datetime import UTC, datetime
+
+    from rosa_turbopi.execution.store import Run
+    from rosa_turbopi.robot.camera.source import Frame
+    from rosa_turbopi.robot.perception.models import Detection, DetectionResult
+    from rosa_turbopi.tools.vision import completed
+
+    frame = Frame("test-frame", datetime.now(UTC), b"original-jpeg", "image/jpeg")
+    result = DetectionResult(
+        frame.id,
+        640,
+        480,
+        (
+            Detection("<unsafe>", 0.85, (10, 20, 100, 200), "left"),
+            Detection("<unsafe>", 0.90, (200, 20, 300, 200), "center"),
+        ),
+    )
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        robot = client.app.state.robot
+        robot.detection_frames.add(frame, result)
+        service = client.app.state.service
+        service.runs.append(
+            Run(
+                query="検出",
+                state="completed",
+                calls=[
+                    {
+                        "id": "call-test",
+                        "name": "detect_objects",
+                        "state": "completed",
+                        "arguments": {},
+                        "result": completed(result),
+                        "elapsed": 1.2,
+                    }
+                ],
+            )
+        )
+        html = client.get("/").text
+        assert 'src="/detections/test-frame?thumbnail=true"' in html
+        assert html.count('src="/detections/test-frame') == 1
+        assert 'class="tool-detection-frame"' not in html
+        assert 'class="detection-thumbnail"' in html
+        assert 'class="expand-detection"' not in html
+        assert html.index('class="detection-thumbnail"') < html.index("<details>")
+        assert 'id="detection-dialog"' not in html
+        assert "camera-live-tab" not in html
+        assert "camera-detection-view" not in html
+        assert "カメラ欄で表示" not in html
+        view = client.get("/detections/test-frame")
+        assert view.status_code == 200
+        assert 'viewBox="0 0 640 480"' in view.text
+        assert 'href="/detections/test-frame/image"' in view.text
+        assert 'width="90" height="180"' in view.text
+        assert "&lt;unsafe&gt;" in view.text
+        assert "<unsafe>" not in view.text
+        assert "85%" in view.text
+        import re
+
+        colors = re.findall(r"--bbox-color: (#[0-9a-f]+)", view.text)
+        assert len(colors) == 2
+        assert colors[0] != colors[1]
+        thumbnail = client.get("/detections/test-frame?thumbnail=true")
+        assert re.findall(r"--bbox-color: (#[0-9a-f]+)", thumbnail.text) == colors
+        image = client.get("/detections/test-frame/image")
+        assert image.content == b"original-jpeg"
+        assert image.headers["content-type"] == "image/jpeg"
+        assert client.post("/conversation/reset").status_code == 200
+        assert client.get("/detections/test-frame/image").status_code == 404
+        missing = client.get("/detections/test-frame")
+        assert missing.status_code == 404
+        assert "表示できません" in missing.text
+
+
+def test_empty_detection_still_displays_captured_image():
+    from datetime import UTC, datetime
+
+    from rosa_turbopi.robot.camera.source import Frame
+    from rosa_turbopi.robot.perception.models import DetectionResult
+
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        frame = Frame("empty-frame", datetime.now(UTC), b"jpeg", "image/jpeg")
+        client.app.state.robot.detection_frames.add(frame, DetectionResult(frame.id, 320, 240, ()))
+        response = client.get("/detections/empty-frame")
+        assert response.status_code == 200
+        assert "検出なし" in response.text
+        assert "/detections/empty-frame/image" in response.text
+
+
+def test_timeline_history_navigation():
+    import re
+
+    from rosa_turbopi.execution.store import Run
+
+    with TestClient(create_app(settings(), lambda robot, observe: None)) as client:
+        runs = [Run(query=f"指示{i}", state="completed") for i in range(3)]
+        client.app.state.service.runs.extend(runs)
+
+        def buttons(path):
+            html = client.get(path).text
+            nav = re.search(r'<nav class="timeline-history".*?</nav>', html, re.DOTALL).group()
+            assert f'data-latest-run-id="{runs[-1].id}"' in nav
+            return re.findall(r"<button.*?</button>", nav, re.DOTALL)
+
+        previous, following, latest = buttons("/")
+        assert f"/runs/{runs[1].id}" in previous
+        assert "disabled" in following and "disabled" in latest
+        previous, following, latest = buttons(f"/runs/{runs[1].id}")
+        assert f"/runs/{runs[0].id}" in previous
+        assert f"/runs/{runs[2].id}" in following and f"/runs/{runs[2].id}" in latest
+        previous, following, latest = buttons(f"/runs/{runs[0].id}")
+        assert "disabled" in previous
+        assert f"/runs/{runs[1].id}" in following
+        client.app.state.service.runs.clear()
+        html = client.get("/").text
+        nav = re.search(r'<nav class="timeline-history".*?</nav>', html, re.DOTALL).group()
+        assert nav.count("disabled") == 3

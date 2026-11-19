@@ -207,7 +207,7 @@ def test_missing_ultralytics_is_an_inference_error_with_install_hint(monkeypatch
     from rosa_turbopi.robot.perception.detector import load_yoloe
 
     monkeypatch.setitem(sys.modules, "ultralytics", None)
-    with pytest.raises(InferenceError, match="uv sync --group vision"):
+    with pytest.raises(InferenceError, match="uv sync --frozen"):
         load_yoloe("weights/x.pt")
 
 
@@ -217,5 +217,34 @@ def test_missing_opencv_is_an_inference_error_with_install_hint(monkeypatch):
     from rosa_turbopi.robot.perception.detector import decode_with_cv2
 
     monkeypatch.setitem(sys.modules, "cv2", None)
-    with pytest.raises(InferenceError, match="uv sync --group vision"):
+    with pytest.raises(InferenceError, match="uv sync --frozen"):
         decode_with_cv2(b"x")
+
+
+@pytest.mark.parametrize(
+    ("variant", "filename"),
+    [("mobileclip2:b", "mobileclip2_b.ts"), ("mobileclip:blt", "mobileclip_blt.ts")],
+)
+def test_encoder_is_loaded_beside_model(monkeypatch, tmp_path, variant, filename):
+    import sys
+    from types import SimpleNamespace
+
+    from rosa_turbopi.robot.perception.detector import load_yoloe
+
+    calls = []
+    encoder = object()
+    model = SimpleNamespace(model=SimpleNamespace(text_model=variant), device="cpu")
+
+    def load_encoder(device, *, weight):
+        calls.append((device, weight))
+        return encoder
+
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLOE=lambda _: model))
+    monkeypatch.setitem(
+        sys.modules, "ultralytics.nn.text_model", SimpleNamespace(MobileCLIPTS=load_encoder)
+    )
+    monkeypatch.chdir(tmp_path)
+    assert load_yoloe("weights/custom/model.pt") is model
+    assert calls == [("cpu", str(tmp_path / "weights" / "custom" / filename))]
+    assert model.model.clip_model is encoder
+    assert (tmp_path / "weights" / "custom").is_dir()

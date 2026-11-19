@@ -4,6 +4,24 @@
 文字起こしまでを `rosa_turbopi_voice` が担当し、確認後の指示実行は
 既存の `rosa_turbopi` が担当します。
 
+## Dockerでの起動
+
+[READMEの共通の準備](../README.md#共通の準備)で `.env`・`weights/` とDockerイメージを用意してから実行します。
+
+```sh
+docker compose run --rm --entrypoint rosa-turbopi-voice-web rosa
+```
+
+バックエンドやAPIキーは `.env` の設定を使います。通常版Web UIと同じポートを使うため、既存Webサーバーを終了してから起動してください。Composeはホストネットワークを使用し、Webアプリは `127.0.0.1:8000` にバインドします。
+
+別のPCからPiのWeb UIを操作する場合は、操作端末でSSHトンネルを張ります。
+
+```sh
+ssh -N -L 8000:127.0.0.1:8000 pi@<Piのアドレス>
+```
+
+操作端末のブラウザで `http://127.0.0.1:8000` を開いてください。ブラウザのマイク許可が必要です。ローカル実行は[READMEの補足](../README.md#ローカル実行補足)を参照してください。
+
 ## 全体構成
 
 録音には操作端末のマイクを使います。音声はPi上のFastAPIを経由してOpenAIへ送り、

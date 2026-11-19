@@ -3,6 +3,7 @@
 from rosa_turbopi.robot.camera.http import HttpSnapshotCamera
 from rosa_turbopi.robot.camera.mock import MockCamera
 from rosa_turbopi.robot.motion import MotionExecutor
+from rosa_turbopi.robot.perception.frames import DetectionFrames
 from rosa_turbopi.settings import Settings
 from rosa_turbopi.transport.rosbridge import RosbridgeClient
 
@@ -12,6 +13,7 @@ class TurboPiClient:
         self.transport = transport
         self.settings = settings
         self.motion = MotionExecutor(transport)
+        self.detection_frames = DetectionFrames()
         self.camera = MockCamera() if settings.backend == "mock" else HttpSnapshotCamera(settings)
 
     def status(self) -> dict:

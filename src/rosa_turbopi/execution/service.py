@@ -1,6 +1,7 @@
 """One shared agent, with observable tools and cooperative cancellation."""
 
 from copy import deepcopy
+from datetime import UTC, datetime
 from functools import wraps
 from threading import Event, RLock, Thread
 from time import monotonic
@@ -39,6 +40,7 @@ class ExecutionService:
                 "state": "running",
                 "result": "",
                 "elapsed": 0,
+                "started_at": datetime.now(UTC).isoformat(),
             }
             with self.lock:
                 run = self.runs[-1]
@@ -102,6 +104,7 @@ class ExecutionService:
                     "実行中は会話をリセットできません。処理の終了後にお試しください。"
                 )
             self.runs.clear()
+            self.robot.detection_frames.clear()
             self.agent = None
             self.worker = None
             self.cancelled.clear()
