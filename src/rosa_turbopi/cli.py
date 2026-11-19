@@ -6,8 +6,7 @@ import sys
 
 from rosa_turbopi.robot.client import TurboPiClient
 from rosa_turbopi.settings import Settings
-from rosa_turbopi.transport.mock import MockTransport
-from rosa_turbopi.transport.rosbridge import RosbridgeClient
+from rosa_turbopi.transport import create_transport
 
 
 def main() -> None:
@@ -30,13 +29,7 @@ def main() -> None:
             raise PermissionError(
                 "Real movement is disabled; set ENABLE_MOTION=true or use ROBOT_BACKEND=mock"
             )
-        transport = (
-            MockTransport(echo=args.command != "chat")
-            if settings.backend == "mock"
-            else RosbridgeClient(
-                settings.host, settings.port, settings.secure, enable_motion=settings.enable_motion
-            )
-        )
+        transport = create_transport(settings, echo=args.command != "chat")
         robot = TurboPiClient(transport, settings)
         agent = None
         if args.command == "chat":

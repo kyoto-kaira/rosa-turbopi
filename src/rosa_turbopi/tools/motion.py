@@ -11,6 +11,13 @@ def build_tools(robot: TurboPiClient) -> list:
     if not robot.motion.enabled:
         return []
 
+    def execute_move(vx: float, vy: float, wz: float, duration_s: float) -> dict:
+        try:
+            robot.motion.start(vx, vy, wz, duration_s)
+            return robot.motion.join()
+        except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
+            return {"state": "rejected", "error": str(exc), "simulated": robot.motion.simulated}
+
     @tool
     def move_for(vx: float, vy: float, wz: float, duration_s: float) -> dict:
         """速度成分を指定して移動する。単独の移動・回転には方向別ツールを優先する。
@@ -20,11 +27,7 @@ def build_tools(robot: TurboPiClient) -> list:
         duration_sは必須で0より大きく最大3秒。不明なら確認する。距離・角度指定は非対応。
         終了時のゼロ速度送信まで待ち、completed（指令処理完了）、cancelled（取消）、
         failed（失敗）、rejected（拒否）を返す。実測の移動・停止を保証しない。"""
-        try:
-            robot.motion.start(vx, vy, wz, duration_s)
-            return robot.motion.join()
-        except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
-            return {"state": "rejected", "error": str(exc), "simulated": robot.motion.simulated}
+        return execute_move(vx, vy, wz, duration_s)
 
     def directional(speed: float, duration_s: float, axis: str, sign: int) -> dict:
         if not math.isfinite(speed) or speed <= 0:
@@ -35,11 +38,7 @@ def build_tools(robot: TurboPiClient) -> list:
             }
         velocity = {"vx": 0.0, "vy": 0.0, "wz": 0.0}
         velocity[axis] = sign * speed
-        try:
-            robot.motion.start(**velocity, duration_s=duration_s)
-            return robot.motion.join()
-        except (ValueError, PermissionError, ConnectionError, RuntimeError, TimeoutError) as exc:
-            return {"state": "rejected", "error": str(exc), "simulated": robot.motion.simulated}
+        return execute_move(**velocity, duration_s=duration_s)
 
     @tool
     def move_forward(duration_s: float, speed: float = 0.5) -> dict:
