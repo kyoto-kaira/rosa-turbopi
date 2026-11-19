@@ -2,6 +2,8 @@
 
 日本語で[TurboPi](https://www.hiwonder.com/products/turbopi?variant=40112905388119)を操作するPythonアプリです。[NASA JPL ROSA](https://github.com/nasa-jpl/rosa) を使い、移動・物体検出をCLIやWeb UIから実行できます。Webではカメラ映像・実行履歴の表示と音声入力にも対応します。
 
+![カメラ映像・物体検出結果・チャットを表示するWeb UI](docs/images/web-ui.png)
+
 実機ではTurboPiの既存Dockerコンテナに接続し、移動・状態取得にはrosbridge、カメラ画像の取得にはHTTPを使います。
 
 ## セットアップ
